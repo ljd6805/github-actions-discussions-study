@@ -510,26 +510,28 @@ jobs:
 </section>
 
 <section class="slide" data-part="Part 2 · Actions 구동원리">
-  <header><div class="eyebrow">Job graph</div><h2>잡은 기본 병렬, <code>needs</code>로 순서, <code>matrix</code>로 확장</h2></header>
-  <div class="cols wide-right">
-<pre class="code" data-lang="yaml">jobs:
-  lint:
+  <header><div class="eyebrow">Job graph</div><h2>잡 실행 순서: 순서는 <code>needs</code>, 실행 여부는 <code>if</code></h2></header>
+  <div class="cols">
+<pre class="code sm" data-lang="yaml">jobs:
+  lint:                       # needs 없음 → 바로 시작
     runs-on: ubuntu-latest
     steps: [...]
-  test:
+  test:                       # needs 없음 → lint와 동시에 시작
     strategy:
       matrix:
-        node: [20, 22, 24]
+        node: [20, 22, 24]    # 잡 3개로 펼쳐짐
     runs-on: ubuntu-latest
     steps: [...]
   build:
-    needs: [lint, test]
+    needs: [lint, test]       # 둘 다 성공해야 시작
+    runs-on: ubuntu-latest
     steps: [...]
   deploy:
-    needs: build
-    if: github.ref == 'refs/heads/main'
+    needs: build              # build가 성공해야 시작
+    if: github.ref == 'refs/heads/main'   # main일 때만 실행
+    runs-on: ubuntu-latest
     steps: [...]</pre>
-    <div class="stack" style="gap:20px">
+    <div class="stack" style="gap:14px">
       <div class="jobs">
         <div class="lane">
           <div class="job"><span class="st ok"></span>lint</div>
@@ -542,8 +544,11 @@ jobs:
         <div class="to">→</div>
         <div class="lane"><div class="job"><span class="st wait"></span>deploy</div></div>
       </div>
-      <div class="legend"><span><i class="st ok"></i>성공</span><span><i class="st run"></i>실행 중</span><span><i class="st wait"></i>대기</span></div>
-      <p class="small muted">matrix 값 3개가 잡 3개로 펼쳐져 동시에 돕니다. build는 lint와 test 4개가 모두 성공해야 시작하고, deploy는 main 브랜치일 때만 실행됩니다.</p>
+      <ul class="list small">
+        <li><b>needs가 없으면 동시에 시작.</b> 잡마다 다른 머신이라 기다릴 이유가 없습니다. 그래서 lint와 test 3개가 함께 돕니다.</li>
+        <li><b>needs에 적은 잡이 모두 성공해야 시작.</b> 하나라도 실패하면 이 잡은 건너뜁니다(skipped). build와 deploy가 이 규칙을 따릅니다.</li>
+        <li><b>if가 거짓이면 실행하지 않음.</b> 순서와 별개인 조건입니다. PR이나 다른 브랜치에서는 build까지만 돌고 deploy는 skipped로 표시됩니다.</li>
+      </ul>
     </div>
   </div>
 </section>

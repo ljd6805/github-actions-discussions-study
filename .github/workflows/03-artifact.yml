@@ -1,0 +1,38 @@
+name: 03 Artifact & Job 연결
+
+on: workflow_dispatch
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      built-at: ${{ steps.meta.outputs.time }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: meta
+        run: echo "time=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
+      - name: 결과물 만들기
+        run: |
+          mkdir -p dist
+          cp -r slides dist/
+          echo "built at ${{ steps.meta.outputs.time }}" > dist/BUILD_INFO.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: site
+          path: dist
+          retention-days: 3
+
+  report:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: site
+          path: site
+      - run: |
+          ls -R site
+          echo "빌드 시각: ${{ needs.build.outputs.built-at }}"

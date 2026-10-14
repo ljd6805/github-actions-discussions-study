@@ -1,0 +1,34 @@
+name: 05 Discussion 환영 댓글
+
+on:
+  discussion:
+    types: [created]
+
+permissions:
+  discussions: write
+
+jobs:
+  welcome:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 환영 댓글 달기
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DISCUSSION_ID: ${{ github.event.discussion.node_id }}
+          AUTHOR: ${{ github.event.discussion.user.login }}
+          CATEGORY: ${{ github.event.discussion.category.name }}
+        run: |
+          BODY="@${AUTHOR} 님, 글 남겨주셔서 고마워요! (카테고리: **${CATEGORY}**)"
+          if [ "$CATEGORY" = "Q&A" ]; then
+            BODY="${BODY}
+
+          해결되면 도움이 된 답변에서 **Mark as answer** 를 눌러 주세요."
+          fi
+          gh api graphql \
+            -f query='mutation($id: ID!, $body: String!) {
+              addDiscussionComment(input: {discussionId: $id, body: $body}) {
+                comment { url }
+              }
+            }' \
+            -f id="$DISCUSSION_ID" -f body="$BODY" \
+            --jq '.data.addDiscussionComment.comment.url'

@@ -1,0 +1,29 @@
+title: "[질문] "
+labels: ["question"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        스터디 실습 중 막힌 부분을 남겨주세요.
+        해결되면 도움이 된 답변에서 **Mark as answer** 를 눌러 주세요.
+  - type: dropdown
+    id: topic
+    attributes:
+      label: 주제
+      options:
+        - GitHub Actions
+        - GitHub Discussions
+        - 실습 환경
+    validations:
+      required: true
+  - type: textarea
+    id: question
+    attributes:
+      label: 질문 내용
+      description: 어떤 Lab에서 무엇을 시도했고 어떤 결과가 나왔는지 적어 주세요.
+    validations:
+      required: true
+  - type: input
+    id: run-url
+    attributes:
+      label: 관련 워크플로 실행 링크 (선택)

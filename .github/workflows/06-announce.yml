@@ -1,0 +1,69 @@
+name: 06 공지 Discussion 게시
+
+on:
+  workflow_dispatch:
+    inputs:
+      title:
+        description: 공지 제목
+        required: true
+        default: v1.0 릴리스 안내
+      body:
+        description: 공지 본문 (Markdown)
+        required: true
+        default: 새 버전이 나왔습니다. 변경 사항을 확인해 주세요.
+      category:
+        description: 게시할 카테고리 이름
+        default: Announcements
+
+permissions:
+  contents: read
+  discussions: write
+
+jobs:
+  announce:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 저장소와 카테고리 ID 조회
+        id: ids
+        env:
+          GH_TOKEN: ${{ github.token }}
+          OWNER: ${{ github.repository_owner }}
+          NAME: ${{ github.event.repository.name }}
+          CATEGORY: ${{ inputs.category }}
+        run: |
+          gh api graphql \
+            -f query='query($owner: String!, $name: String!) {
+              repository(owner: $owner, name: $name) {
+                id
+                discussionCategories(first: 25) { nodes { id name } }
+              }
+            }' \
+            -f owner="$OWNER" -f name="$NAME" > repo.json
+          REPO_ID=$(jq -r '.data.repository.id' repo.json)
+          CAT_ID=$(jq -r --arg c "$CATEGORY" \
+            '.data.repository.discussionCategories.nodes[] | select(.name == $c) | .id' repo.json)
+          if [ -z "$CAT_ID" ]; then
+            echo "::error::'$CATEGORY' 카테고리를 찾지 못했습니다. Discussions가 켜져 있는지 확인하세요."
+            exit 1
+          fi
+          echo "repo=$REPO_ID" >> "$GITHUB_OUTPUT"
+          echo "category=$CAT_ID" >> "$GITHUB_OUTPUT"
+
+      - name: Discussion 만들기
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO_ID: ${{ steps.ids.outputs.repo }}
+          CAT_ID: ${{ steps.ids.outputs.category }}
+          TITLE: ${{ inputs.title }}
+          BODY: ${{ inputs.body }}
+        run: |
+          URL=$(gh api graphql \
+            -f query='mutation($repo: ID!, $cat: ID!, $title: String!, $body: String!) {
+              createDiscussion(input: {repositoryId: $repo, categoryId: $cat, title: $title, body: $body}) {
+                discussion { url }
+              }
+            }' \
+            -f repo="$REPO_ID" -f cat="$CAT_ID" -f title="$TITLE" -f body="$BODY" \
+            --jq '.data.createDiscussion.discussion.url')
+          echo "게시됨: $URL"
+          echo "### 공지 게시 완료: $URL" >> "$GITHUB_STEP_SUMMARY"

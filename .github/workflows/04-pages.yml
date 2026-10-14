@@ -1,0 +1,32 @@
+name: 04 Deploy slides to Pages
+
+on:
+  workflow_dispatch:
+  # Lab 4를 마친 뒤 아래 주석을 풀면 slides/ 가 바뀔 때마다 자동 배포됩니다.
+  # push:
+  #   branches: [main]
+  #   paths: ['slides/**']
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: slides
+      - id: deployment
+        uses: actions/deploy-pages@v4

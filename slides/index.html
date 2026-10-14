@@ -365,7 +365,7 @@ td:first-child { font-weight: 600; white-space: nowrap; }
 </section>
 
 <section class="slide" data-part="Part 2 · Actions 구동원리">
-  <header><div class="eyebrow">Anatomy</div><h2>워크플로 YAML 해부</h2></header>
+  <header><div class="eyebrow">Anatomy 1 · overview</div><h2>워크플로 YAML 해부: 전체 구조</h2></header>
   <div class="cols wide-left">
     <div class="stack">
       <div class="file">.github/workflows/ci.yml</div>
@@ -388,9 +388,106 @@ jobs:
       - run: npm test</pre>
     </div>
     <div class="stack">
-      <div class="cell"><span class="tag">on</span><p>트리거 목록. 여러 이벤트를 걸 수 있고 브랜치, 경로, 타입으로 거릅니다.</p></div>
-      <div class="cell"><span class="tag">jobs.&lt;id&gt;.runs-on</span><p>러너 라벨. <code>ubuntu-latest</code>, <code>windows-latest</code>, <code>macos-latest</code> 또는 자체 러너 라벨.</p></div>
-      <div class="cell"><span class="tag">steps[].uses / run</span><p><code>uses</code>는 액션 호출, <code>run</code>은 셸 명령. <code>with</code>로 액션 입력값을 넘깁니다.</p></div>
+      <div class="cell"><span class="tag">on</span><p>언제 돌지. 여러 이벤트를 걸 수 있고 브랜치, 경로, 타입으로 거릅니다. 위 예시는 main에 push할 때와 PR이 열리거나 갱신될 때 돕니다.</p></div>
+      <div class="cell"><span class="tag">permissions</span><p>이 실행이 받는 토큰의 권한. 필요한 것만 적습니다(토큰 슬라이드 참고).</p></div>
+      <div class="cell"><span class="tag">jobs → steps</span><p>무엇을 할지. 잡 하나는 러너 한 대에서 돌고, 그 안의 스텝이 위에서 아래로 실행됩니다. 다음 세 장에서 하나씩 풉니다.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="slide" data-part="Part 2 · Actions 구동원리">
+  <header><div class="eyebrow">Anatomy 2 · jobs</div><h2><code>jobs.&lt;id&gt;</code>와 <code>runs-on</code>: 어떤 일을, 어떤 머신에서</h2></header>
+  <div class="cols">
+    <div class="stack">
+<pre class="code sm" data-lang="yaml">jobs:
+  test:                         # &lt;id&gt; 내가 정하는 잡 이름
+    name: 단위 테스트             # 화면 표시용 이름 (선택)
+    runs-on: ubuntu-latest      # 이 잡을 실행할 머신
+    timeout-minutes: 10
+    steps: [...]
+
+  build-win:                    # 두 번째 잡, test와 동시에 시작
+    runs-on: windows-latest
+    steps: [...]
+
+  report:
+    needs: [test, build-win]    # id로 다른 잡을 가리킴
+    runs-on: ubuntu-latest
+    steps: [...]
+
+  train:
+    runs-on: [self-hosted, linux, gpu]  # 라벨을 모두 가진 자체 러너</pre>
+    </div>
+    <div class="stack">
+      <div class="cell"><span class="tag">&lt;id&gt;</span><p>잡의 식별자로, <code>test</code>·<code>build-win</code>처럼 내가 짓습니다. 영문, 숫자, <code>-</code>, <code>_</code>만 쓰고, <code>needs: test</code>나 <code>needs.test.outputs</code>처럼 다른 곳에서 이 이름으로 부릅니다.</p></div>
+      <div class="tbl-wrap"><table>
+        <thead><tr><th>runs-on 값</th><th>받는 머신</th></tr></thead>
+        <tbody>
+          <tr><td><code>ubuntu-latest</code></td><td>Linux VM, 기본 셸 bash. 가장 빠르고 많이 씀</td></tr>
+          <tr><td><code>windows-latest</code></td><td>Windows VM, 기본 셸 PowerShell(pwsh)</td></tr>
+          <tr><td><code>macos-latest</code></td><td>macOS VM, iOS·macOS 빌드용</td></tr>
+          <tr><td><code>[self-hosted, …]</code></td><td>내가 등록한 러너 중 라벨이 모두 맞는 것</td></tr>
+        </tbody>
+      </table></div>
+      <p class="small muted"><code>runs-on: ${{ matrix.os }}</code>처럼 값을 변수로 줄 수도 있습니다(Lab 2). 잡마다 새 머신이 배정되므로, 파일은 같은 잡의 스텝끼리만 공유됩니다.</p>
+    </div>
+  </div>
+</section>
+
+<section class="slide" data-part="Part 2 · Actions 구동원리">
+  <header><div class="eyebrow">Anatomy 3 · steps</div><h2><code>uses</code>: 남이 만든 스텝을 가져다 쓰기</h2></header>
+  <div class="cols">
+<pre class="code sm" data-lang="yaml">steps:
+  - name: 코드 받기
+    uses: actions/checkout@v4    # 저장소/이름@버전
+
+  - name: Node 설치
+    id: node
+    uses: actions/setup-node@v4
+    with:                        # 액션에 넘기는 입력값
+      node-version: 22
+      cache: npm
+
+  - run: echo "${{ steps.node.outputs.node-version }}"
+
+  - uses: ./.github/actions/setup   # 내 저장소 안의 액션
+  - uses: docker://alpine:3.20      # 컨테이너 이미지 직접 실행</pre>
+    <div class="stack">
+      <div class="cell"><span class="tag">uses: owner/repo@ref</span><p><code>github.com/actions/checkout</code> 저장소의 <code>v4</code> 태그를 내려받아 실행한다는 뜻입니다. 태그 대신 브랜치나 커밋 SHA도 쓸 수 있습니다.</p></div>
+      <div class="cell"><span class="tag">with</span><p>액션의 <code>action.yml</code>에 정의된 <code>inputs</code>에 값을 넘깁니다. 어떤 입력이 있는지는 액션 저장소의 README에 나와 있습니다.</p></div>
+      <div class="cell"><span class="tag">id + outputs</span><p>스텝에 <code>id</code>를 붙이면 그 액션이 내보낸 값을 뒤 스텝에서 <code>steps.&lt;id&gt;.outputs.&lt;이름&gt;</code>으로 읽습니다.</p></div>
+      <div class="note"><b>checkout을 먼저</b> 러너는 빈 머신이라 저장소 코드가 없습니다. 코드를 다루는 잡은 거의 항상 <code>actions/checkout</code>으로 시작합니다.</div>
+    </div>
+  </div>
+</section>
+
+<section class="slide" data-part="Part 2 · Actions 구동원리">
+  <header><div class="eyebrow">Anatomy 4 · steps</div><h2><code>run</code>: 러너의 셸에서 명령 실행하기</h2></header>
+  <div class="cols">
+<pre class="code sm" data-lang="yaml">steps:
+  - name: 한 줄 명령
+    run: npm ci
+
+  - name: 여러 줄 명령
+    working-directory: labs/sample-app   # 실행 위치
+    env:
+      CI: true                           # 이 스텝 전용 환경 변수
+    run: |
+      npm test
+      npm run build
+
+  - name: Windows에서도 bash로
+    shell: bash
+    run: echo "OS=$RUNNER_OS"
+
+  - name: 실패해도 계속
+    continue-on-error: true
+    run: npm run lint</pre>
+    <div class="stack">
+      <div class="cell"><span class="tag">run</span><p>적어 둔 명령을 러너의 셸이 그대로 실행합니다. <code>|</code>를 쓰면 여러 줄을 한 스크립트로 실행합니다.</p></div>
+      <div class="cell"><span class="tag">성공과 실패</span><p>명령이 0이 아닌 종료 코드를 내면 그 자리에서 멈추고 스텝이 실패합니다. 기본적으로 뒤 스텝은 건너뛰고 잡도 실패합니다.</p></div>
+      <div class="cell"><span class="tag">shell</span><p>기본 셸은 Linux·macOS가 bash, Windows가 PowerShell입니다. <code>shell: bash</code>, <code>python</code> 등으로 바꿀 수 있습니다.</p></div>
+      <div class="note"><b>한 스텝엔 하나만</b> 스텝 하나에 <code>uses</code>와 <code>run</code>을 함께 쓸 수 없습니다. <code>name</code>, <code>id</code>, <code>if</code>, <code>env</code>는 두 종류 모두에 쓸 수 있습니다.</div>
     </div>
   </div>
 </section>

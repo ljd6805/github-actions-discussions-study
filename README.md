@@ -1,6 +1,6 @@
 # GitHub Actions & Discussions 스터디
 
-GitHub Actions와 Discussions를 **이론(소개 · 구동원리 · 외부 활용 사례)** 과 **실습(Lab 0~7)** 으로 한 번에 익히는 저장소입니다.
+GitHub Actions와 Discussions를 **이론(소개 · 구동원리 · 외부 활용 사례)** 과 **실습(Lab 0~7)** 으로 한 번에 익히는 저장소입니다. 병렬 작업을 위한 **Git worktree** 이론도 함께 다룹니다.
 
 - 슬라이드: [`slides/index.html`](slides/index.html)
   - Lab 4를 마치면 `https://<계정>.github.io/github-actions-discussions-study/` 에서 볼 수 있습니다.
@@ -20,7 +20,7 @@ GitHub Actions와 Discussions를 **이론(소개 · 구동원리 · 외부 활�
   DISCUSSION_TEMPLATE/
     q-a.yml                    # Lab 5  Q&A 카테고리 글쓰기 폼
 labs/sample-app/               # Lab 2  테스트 대상 예제 (node --test, 의존성 없음)
-slides/index.html              # 이론 + 실습 슬라이드 (38장)
+slides/index.html              # 이론 + 실습 슬라이드 (45장, Git worktree 포함)
 ```
 
 ## 실습 순서
@@ -36,7 +36,7 @@ slides/index.html              # 이론 + 실습 슬라이드 (38장)
 | 6 | 아무 카테고리에 글 작성 → 봇 환영 댓글 확인 | Discussions |
 | 7 | **06 공지 Discussion 게시** 실행 → Announcements 새 글 확인 | Discussions |
 
-각 Lab의 자세한 단계와 과제는 슬라이드 Part 5에 있습니다.
+각 Lab의 자세한 단계와 과제는 슬라이드 Part 6에 있습니다. Lab 2는 Part 5의 worktree 방식으로도 해 볼 수 있습니다.
 
 ## 막혔을 때
 
@@ -50,4 +50,5 @@ slides/index.html              # 이론 + 실습 슬라이드 (38장)
 
 - https://docs.github.com/actions
 - https://docs.github.com/discussions
+- https://git-scm.com/docs/git-worktree
 - https://skills.github.com

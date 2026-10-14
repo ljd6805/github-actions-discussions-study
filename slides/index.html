@@ -190,7 +190,7 @@ td:first-child { font-weight: 600; white-space: nowrap; }
 .divider h2 { font-size: 62px; }
 .divider p { font-size: 24px; color: var(--muted); max-width: 40ch; }
 
-.agenda { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; }
+.agenda { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
 .agenda .cell { background: var(--surface); }
 .agenda .cell .tag { font-size: 14px; }
 .lab-badge { display: inline-flex; align-items: center; gap: 8px; font-family: var(--font-mono); font-size: 14px; color: var(--run); border: 1.5px solid var(--run); border-radius: 999px; padding: 2px 12px; width: fit-content; }
@@ -254,38 +254,41 @@ td:first-child { font-weight: 600; white-space: nowrap; }
   <div class="eyebrow"><span class="dot"></span> Study Deck · 이론 + 실습</div>
   <div class="stack" style="gap:20px">
     <h1>GitHub Actions &amp; Discussions 스터디</h1>
-    <p class="sub">저장소 안에서 돌아가는 자동화와 커뮤니티 포럼을 이해하고, 직접 만들어 보며 익힙니다.</p>
+    <p class="sub">저장소 안에서 돌아가는 자동화와 커뮤니티 포럼, 그리고 병렬 작업을 위한 Git worktree를 이해하고 직접 만들어 보며 익힙니다.</p>
   </div>
   <div class="runlog" aria-label="오늘의 실행 단계">
     <div><i class="st ok"></i> Part 1 · Actions 소개</div>
     <div><i class="st ok"></i> Part 2 · Actions 구동원리</div>
     <div><i class="st ok"></i> Part 3 · Discussions 소개와 구동원리</div>
     <div><i class="st ok"></i> Part 4 · 외부 활용 사례</div>
-    <div><i class="st run"></i> Part 5 · 실습 Lab 0 ~ 7</div>
+    <div><i class="st ok"></i> Part 5 · Git worktree</div>
+    <div><i class="st run"></i> Part 6 · 실습 Lab 0 ~ 7</div>
   </div>
   <div class="meta"><span>repo · ljd6805/github-actions-discussions-study</span><span>2026.10</span></div>
 </section>
 
 <section class="slide" data-part="시작">
-  <header><div class="eyebrow">오늘의 흐름</div><h2>이론 네 파트, 그다음 손으로 익히는 실습</h2></header>
+  <header><div class="eyebrow">오늘의 흐름</div><h2>이론 다섯 파트, 그다음 손으로 익히는 실습</h2></header>
   <div class="agenda">
     <div class="cell"><span class="tag">Part 1</span><h3>Actions 소개</h3><p>무엇이고 왜 쓰는지, 핵심 용어 6개</p></div>
     <div class="cell"><span class="tag">Part 2</span><h3>Actions 구동원리</h3><p>이벤트에서 러너까지, 잡 그래프, 토큰과 보안</p></div>
     <div class="cell"><span class="tag">Part 3</span><h3>Discussions</h3><p>Issues와의 차이, 카테고리, 데이터 모델과 이벤트</p></div>
     <div class="cell"><span class="tag">Part 4</span><h3>외부 활용 사례</h3><p>오픈소스 프로젝트와 도구들이 실제로 쓰는 방식</p></div>
-    <div class="cell"><span class="tag">Part 5</span><h3>실습</h3><p>Hello부터 Discussions 자동화까지 Lab 8개</p></div>
+    <div class="cell"><span class="tag">Part 5</span><h3>Git worktree</h3><p>브랜치 여러 개를 폴더로 펼쳐 놓고 병렬로 일하기</p></div>
+    <div class="cell"><span class="tag">Part 6</span><h3>실습</h3><p>Hello부터 Discussions 자동화까지 Lab 8개</p></div>
   </div>
   <div class="note"><b>실습 저장소</b> 모든 예제 워크플로와 템플릿은 이 저장소의 <code>.github/</code> 와 <code>labs/</code> 에 들어 있습니다. 슬라이드를 보며 바로 실행해 보세요.</div>
 </section>
 
 <section class="slide" data-part="시작">
   <header><div class="eyebrow">학습 목표</div><h2>스터디를 마치면 할 수 있는 것</h2></header>
-  <ul class="list" style="font-size:24px;gap:20px">
+  <ul class="list" style="font-size:23px;gap:16px">
     <li>워크플로 YAML을 읽고 <b>언제, 어디서, 무엇이</b> 실행되는지 설명할 수 있다.</li>
     <li>matrix CI, 아티팩트, GitHub Pages 배포 워크플로를 직접 만들고 고칠 수 있다.</li>
     <li><code>GITHUB_TOKEN</code> 권한과 서드파티 액션의 보안 위험을 판단할 수 있다.</li>
     <li>Discussions를 켜고 카테고리, 템플릿, 답변 채택으로 커뮤니티를 운영할 수 있다.</li>
     <li>Discussions 이벤트와 GraphQL API를 Actions로 연결해 운영을 자동화할 수 있다.</li>
+    <li><code>git worktree</code>로 여러 브랜치를 동시에 열어 두고 PR 단위로 병렬 작업할 수 있다.</li>
   </ul>
 </section>
 
@@ -475,7 +478,7 @@ steps:
           <tr><td><code>matrix.*</code>, <code>inputs.*</code></td><td>matrix 조합, 수동 실행 입력값</td></tr>
         </tbody>
       </table></div>
-      <p class="small muted">표현식은 러너로 보내기 전에 GitHub가 문자열로 치환합니다. 그래서 사용자 입력을 <code>run:</code>에 직접 넣으면 위험합니다 (Part 2 보안 참고).</p>
+      <p class="small muted">표현식은 러너로 보내기 전에 GitHub가 문자열로 치환합니다. 그래서 사용자 입력을 <code>run:</code>에 직접 넣으면 위험합니다 (보안 슬라이드 참고).</p>
     </div>
   </div>
 </section>
@@ -707,14 +710,145 @@ jobs:
   <p class="small muted">릴리스 페이지에서 "Create a discussion for this release"를 체크하면 워크플로 없이도 릴리스 Discussion을 만들 수 있습니다.</p>
 </section>
 
-<!-- ===================== Part 5 ===================== -->
-<section class="slide divider" data-part="Part 5 · 실습">
+<!-- ===================== Part 5 · Git worktree ===================== -->
+<section class="slide divider" data-part="Part 5 · Git worktree">
   <span class="num">PART 5</span>
+  <h2>Git worktree</h2>
+  <p>저장소 하나에 작업 폴더를 여러 개 붙여, 브랜치 여러 개를 동시에 펼쳐 놓고 일하는 방법</p>
+</section>
+
+<section class="slide" data-part="Part 5 · Git worktree">
+  <header><div class="eyebrow">What &amp; why</div><h2>worktree는 무엇이고 왜 쓰는가</h2></header>
+  <p class="lead">기능 개발 중에 급한 버그 수정이 들어오면 보통 <code>stash</code>나 임시 커밋 후 브랜치를 바꿉니다. worktree는 <b>같은 저장소에 두 번째 작업 폴더</b>를 만들어 다른 브랜치를 그대로 열어 둡니다.</p>
+  <div class="grid3">
+    <div class="cell"><span class="tag">hotfix</span><h3>긴급 수정</h3><p>하던 작업을 건드리지 않고 옆 폴더에서 main 기준 핫픽스 브랜치를 만들어 PR을 올립니다.</p></div>
+    <div class="cell"><span class="tag">review</span><h3>PR 리뷰와 비교</h3><p>동료의 PR 브랜치를 별도 폴더에 열어 실행해 보고, 내 브랜치와 나란히 비교합니다.</p></div>
+    <div class="cell"><span class="tag">parallel</span><h3>병렬 작업</h3><p>긴 빌드·테스트를 한 폴더에서 돌리는 동안 다른 폴더에서 계속 작업합니다. AI 코딩 에이전트 여러 개를 폴더별로 격리해 돌릴 때도 씁니다.</p></div>
+  </div>
+</section>
+
+<section class="slide" data-part="Part 5 · Git worktree">
+  <header><div class="eyebrow">How it works</div><h2>구동원리: 저장소는 하나, 작업 공간은 여러 개</h2></header>
+  <div class="cols">
+<pre class="code" data-lang="bash">~/study/                       # 메인 worktree
+├── .git/                      # 진짜 저장소
+│   ├── objects/               # 커밋·파일 (공유)
+│   ├── refs/heads/            # 브랜치 (공유)
+│   ├── config                 # 설정 (공유)
+│   ├── HEAD, index            # 메인 worktree 전용
+│   └── worktrees/
+│       └── hotfix/            # 추가 worktree 전용 상태
+│           ├── HEAD
+│           ├── index
+│           └── gitdir
+└── slides/ ...
+
+~/study-hotfix/                # 추가(linked) worktree
+├── .git                       # 폴더가 아닌 "파일"
+│   # gitdir: ~/study/.git/worktrees/hotfix
+└── slides/ ...</pre>
+    <div class="stack">
+      <div class="cell"><span class="tag">공유</span><p>커밋 객체, 브랜치·태그, 원격 설정, stash. 한쪽에서 커밋하면 다른 쪽에서 <code>git log</code>로 바로 보입니다.</p></div>
+      <div class="cell"><span class="tag">worktree마다 따로</span><p>체크아웃된 파일, <code>HEAD</code>, 스테이징 영역(<code>index</code>), 진행 중인 merge·rebase 상태.</p></div>
+      <div class="note"><b>규칙</b> 한 브랜치는 한 worktree에서만 체크아웃할 수 있습니다. 두 곳에서 같은 브랜치를 고치다 서로 덮어쓰는 일을 막기 위해서입니다.</div>
+    </div>
+  </div>
+</section>
+
+<section class="slide" data-part="Part 5 · Git worktree">
+  <header><div class="eyebrow">Commands</div><h2>자주 쓰는 명령어</h2></header>
+  <div class="cols wide-left">
+<pre class="code" data-lang="bash"># main을 기준으로 새 브랜치 + 새 폴더
+git worktree add -b hotfix/typo ../study-hotfix main
+
+# 이미 있는 브랜치를 폴더로 열기 (PR 리뷰)
+git fetch origin lab2-break
+git worktree add ../study-review lab2-break
+
+# 목록 보기
+git worktree list
+# ~/study          a82d0dc [main]
+# ~/study-hotfix   a82d0dc [hotfix/typo]
+# ~/study-review   5c1e9f2 [lab2-break]
+
+# 다 쓴 worktree 정리
+git worktree remove ../study-review
+git worktree prune     # 폴더를 직접 지웠을 때 기록 정리</pre>
+    <div class="stack">
+      <div class="tbl-wrap"><table>
+        <tbody>
+          <tr><td><code>add</code></td><td>폴더를 만들고 브랜치를 체크아웃</td></tr>
+          <tr><td><code>list</code></td><td>모든 worktree와 브랜치, 커밋</td></tr>
+          <tr><td><code>remove</code></td><td>폴더와 기록 삭제 (변경이 있으면 거부)</td></tr>
+          <tr><td><code>prune</code></td><td>사라진 폴더의 기록 정리</td></tr>
+          <tr><td><code>lock</code></td><td>외장 디스크 등 정리 대상에서 보호</td></tr>
+          <tr><td><code>move</code>, <code>repair</code></td><td>폴더 이동, 끊어진 연결 복구</td></tr>
+        </tbody>
+      </table></div>
+      <p class="small muted">폴더 이름은 보통 저장소 옆에 <code>저장소-브랜치</code> 형태로 둡니다. 저장소 안쪽에 만들면 <code>git status</code>에 잡히니 피하세요.</p>
+    </div>
+  </div>
+</section>
+
+<section class="slide" data-part="Part 5 · Git worktree">
+  <header><div class="eyebrow">Compare</div><h2>stash, clone, worktree 비교</h2></header>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr><th></th><th>stash 후 브랜치 전환</th><th>clone 하나 더</th><th>worktree</th></tr></thead>
+      <tbody>
+        <tr><td>동시에 열린 브랜치</td><td>1개</td><td>여러 개</td><td>여러 개</td></tr>
+        <tr><td>저장소 데이터</td><td>1벌</td><td>clone마다 1벌 (디스크·네트워크 ×N)</td><td>1벌을 공유</td></tr>
+        <tr><td>브랜치·커밋 공유</td><td>-</td><td>push·fetch로만</td><td>즉시</td></tr>
+        <tr><td>하던 작업</td><td>stash에 넣었다 꺼내야 함</td><td>그대로</td><td>그대로</td></tr>
+        <tr><td>빌드 산출물</td><td>전환마다 재빌드가 잦음</td><td>폴더마다 따로</td><td>폴더마다 따로</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="note"><b>요약</b> 잠깐 바꿔 보는 것이면 <code>git switch</code>, 오래 나란히 열어 둘 거면 worktree, 완전히 다른 설정이 필요하면 clone.</div>
+</section>
+
+<section class="slide" data-part="Part 5 · Git worktree">
+  <header><div class="eyebrow">In practice</div><h2>활용 사례와 Actions와의 연결</h2></header>
+  <div class="grid2">
+    <div class="cell"><span class="tag">로컬 · PR 흐름</span><h3>worktree마다 PR 하나</h3><p>폴더별 브랜치를 각각 push하면 PR이 따로 열리고, 이 저장소의 CI(02)가 PR마다 독립적으로 돕니다. Lab 2를 worktree로 해 보면 main 폴더는 깨끗하게 유지됩니다.</p></div>
+    <div class="cell"><span class="tag">AI 코딩 도구</span><h3>에이전트 격리</h3><p>Claude Code 같은 도구는 작업마다 worktree를 만들어, 여러 에이전트가 서로의 파일을 건드리지 않고 동시에 브랜치를 고치게 합니다.</p></div>
+    <div class="cell"><span class="tag">CI 안에서</span><h3>두 브랜치를 한 잡에서</h3><p>워크플로에서 <code>git worktree add ../gh-pages gh-pages</code>로 배포 브랜치를 옆에 열고, 빌드 결과를 복사해 커밋하는 문서 배포 패턴이 있습니다.</p></div>
+    <div class="cell"><span class="tag">비교 · 디버깅</span><h3>이전 버전과 나란히</h3><p>태그나 예전 커밋을 별도 폴더에 열어 두고 성능·동작을 현재 버전과 비교합니다. <code>git worktree add --detach ../v1 v1.0</code></p></div>
+  </div>
+</section>
+
+<section class="slide" data-part="Part 5 · Git worktree">
+  <header><div class="eyebrow">Pitfalls &amp; try it</div><h2>주의할 점과 직접 해 보기</h2></header>
+  <div class="cols">
+    <ul class="list">
+      <li><b>같은 브랜치 중복 불가.</b> <code>already checked out</code> 오류가 나면 다른 worktree에서 그 브랜치를 쓰고 있는 것입니다.</li>
+      <li><b>폴더를 그냥 지우지 말 것.</b> <code>git worktree remove</code>를 쓰고, 이미 지웠다면 <code>git worktree prune</code>.</li>
+      <li><b>의존성은 폴더마다.</b> <code>node_modules</code>, 빌드 캐시는 worktree마다 새로 설치됩니다.</li>
+      <li><b>submodule이 있는 저장소</b>는 지원이 제한적이니 공식 문서의 주의 사항을 확인하세요.</li>
+    </ul>
+    <div class="stack">
+      <div class="file">따라 해 보기: Lab 2를 worktree에서</div>
+<pre class="code sm" data-lang="bash">cd github-actions-discussions-study
+git worktree add -b lab2-break ../study-lab2 main
+cd ../study-lab2
+sed -i 's/a + b/a - b/' labs/sample-app/src/math.js
+git commit -am "Lab 2: add를 일부러 깨뜨리기"
+git push -u origin lab2-break    # PR을 열어 CI 확인
+cd ../github-actions-discussions-study
+git worktree list
+git worktree remove ../study-lab2</pre>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== Part 6 ===================== -->
+<section class="slide divider" data-part="Part 6 · 실습">
+  <span class="num">PART 6</span>
   <h2>실습</h2>
   <p>저장소에 들어 있는 워크플로를 실행하고, 고치고, 깨뜨리며 익힙니다.</p>
 </section>
 
-<section class="slide" data-part="Part 5 · 실습">
+<section class="slide" data-part="Part 6 · 실습">
   <header><div class="eyebrow">Lab map</div><h2>실습 지도</h2></header>
   <div class="tbl-wrap">
     <table>
@@ -733,7 +867,7 @@ jobs:
   </div>
 </section>
 
-<section class="slide" data-part="Part 5 · 실습">
+<section class="slide" data-part="Part 6 · 실습">
   <header><span class="lab-badge">LAB 0</span><h2>준비: 내 저장소에서 Actions 켜기</h2></header>
   <div class="cols">
     <ol class="steps">
@@ -748,7 +882,7 @@ tree -a -L 3 .github labs</pre>
   </div>
 </section>
 
-<section class="slide" data-part="Part 5 · 실습">
+<section class="slide" data-part="Part 6 · 실습">
   <header><span class="lab-badge">LAB 1</span><h2>Hello Actions: 수동 실행과 로그 읽기</h2></header>
   <div class="cols wide-left">
     <div class="stack">
@@ -782,7 +916,7 @@ jobs:
   </div>
 </section>
 
-<section class="slide" data-part="Part 5 · 실습">
+<section class="slide" data-part="Part 6 · 실습">
   <header><span class="lab-badge">LAB 2</span><h2>matrix CI: 일부러 깨뜨리고 PR에서 고치기</h2></header>
   <div class="cols">
     <div class="stack">
@@ -813,7 +947,7 @@ steps:
   </div>
 </section>
 
-<section class="slide" data-part="Part 5 · 실습">
+<section class="slide" data-part="Part 6 · 실습">
   <header><span class="lab-badge">LAB 3</span><h2>잡 연결: outputs와 아티팩트</h2></header>
   <div class="cols wide-left">
 <pre class="code" data-lang="yaml">jobs:
@@ -845,7 +979,7 @@ steps:
   </div>
 </section>
 
-<section class="slide" data-part="Part 5 · 실습">
+<section class="slide" data-part="Part 6 · 실습">
   <header><span class="lab-badge">LAB 4</span><h2>GitHub Pages로 이 슬라이드 배포하기</h2></header>
   <div class="cols">
     <ol class="steps">
@@ -873,7 +1007,7 @@ jobs:
   </div>
 </section>
 
-<section class="slide" data-part="Part 5 · 실습">
+<section class="slide" data-part="Part 6 · 실습">
   <header><span class="lab-badge">LAB 5</span><h2>Discussions 켜고 운영해 보기</h2></header>
   <div class="cols">
     <ol class="steps">
@@ -890,7 +1024,7 @@ jobs:
   </div>
 </section>
 
-<section class="slide" data-part="Part 5 · 실습">
+<section class="slide" data-part="Part 6 · 실습">
   <header><span class="lab-badge">LAB 6</span><h2>새 Discussion에 자동 환영 댓글 달기</h2></header>
   <div class="cols wide-left">
     <div class="stack">
@@ -927,7 +1061,7 @@ jobs:
   </div>
 </section>
 
-<section class="slide" data-part="Part 5 · 실습">
+<section class="slide" data-part="Part 6 · 실습">
   <header><span class="lab-badge">LAB 7</span><h2>워크플로로 공지 Discussion 게시하기</h2></header>
   <div class="cols wide-left">
 <pre class="code sm" data-lang="yaml">- name: 저장소와 카테고리 ID 조회
@@ -960,7 +1094,7 @@ jobs:
   </div>
 </section>
 
-<section class="slide" data-part="Part 5 · 실습">
+<section class="slide" data-part="Part 6 · 실습">
   <header><div class="eyebrow">Troubleshooting</div><h2>막혔을 때 먼저 볼 것</h2></header>
   <div class="tbl-wrap">
     <table>
@@ -988,6 +1122,7 @@ jobs:
         <li><code>GITHUB_TOKEN</code> 최소 권한과 스크립트 인젝션 방어</li>
         <li>Discussions 카테고리, 템플릿, 답변 채택</li>
         <li>discussion 이벤트와 GraphQL로 운영 자동화</li>
+        <li>worktree로 브랜치를 폴더별로 나눠 병렬 작업</li>
       </ul>
     </div>
     <div class="stack">
@@ -1001,6 +1136,7 @@ jobs:
       <ul class="list small">
         <li><a href="https://docs.github.com/actions" target="_blank" rel="noopener">docs.github.com/actions</a></li>
         <li><a href="https://docs.github.com/discussions" target="_blank" rel="noopener">docs.github.com/discussions</a></li>
+        <li><a href="https://git-scm.com/docs/git-worktree" target="_blank" rel="noopener">git-scm.com/docs/git-worktree</a></li>
         <li><a href="https://skills.github.com" target="_blank" rel="noopener">skills.github.com</a> (GitHub 공식 실습 코스)</li>
       </ul>
     </div>

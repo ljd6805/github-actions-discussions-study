@@ -357,9 +357,10 @@ td:first-child { font-weight: 600; white-space: nowrap; }
     <div class="arrow">→</div>
     <div class="node done"><span class="mono">5 · report</span><b>결과 보고</b><span>체크 상태, 로그, 요약, 아티팩트가 커밋과 PR에 붙음</span></div>
   </div>
+  <div class="note"><b>어느 브랜치의 YAML로 도나?</b> 워크플로 파일도 코드라서 브랜치마다 내용이 다를 수 있습니다. <code>push</code>·<code>pull_request</code>는 <b>그 브랜치에 있는 파일</b>로 돌고, <code>schedule</code>·<code>discussion</code>·<code>issues</code>처럼 특정 브랜치와 상관없는 이벤트는 <b>기본 브랜치(main)의 파일</b>로 돕니다. 수동 실행(<code>workflow_dispatch</code>)은 Run workflow에서 고른 브랜치의 파일을 씁니다.</div>
   <div class="grid2">
-    <div class="note"><b>어느 버전의 YAML이 쓰이나</b> push는 그 커밋의 파일, <code>workflow_dispatch</code>·<code>schedule</code>·<code>discussion</code> 같은 이벤트는 기본 브랜치의 파일이 기준입니다.</div>
-    <div class="note"><b>로그는 실시간</b> 러너는 스텝 출력을 스트리밍하고, 잡이 끝나면 상태(성공, 실패, 취소, 건너뜀)를 GitHub에 보고합니다.</div>
+    <div class="cell"><span class="tag">예시</span><p><code>feature</code> 브랜치에서 05 환영 댓글 문구를 바꿔도, main에 병합하기 전에는 새 Discussion에 <b>예전 문구</b>가 달립니다. 수정한 파일이 main에 없기 때문입니다.</p></div>
+    <div class="cell"><span class="tag">로그는 실시간</span><p>러너는 스텝 출력을 스트리밍하고, 잡이 끝나면 상태(성공, 실패, 취소, 건너뜀)를 GitHub에 보고합니다.</p></div>
   </div>
 </section>
 
